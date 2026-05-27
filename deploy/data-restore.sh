@@ -1,24 +1,21 @@
 #!/usr/bin/env bash
-# Remote data restore — runs on VPS in `deploy/` directory after files have
-# been scp'd to `~/shadraw-studio/`.
+# Restore Postgres + MinIO data from a local dump pair into the running stack.
 #
-# Destructively replaces Postgres + MinIO contents with the dumps. Prompts
-# for confirmation unless --yes is passed.
+# Auto-detects deployment mode:
+#   - Binary mode  : docker-compose.deps.yml present → api is systemd, deps in docker
+#   - Docker mode  : docker-compose.prod.yml present → everything in docker
 #
-# Usage (on VPS):
-#   cd ~/shadraw-studio/deploy
-#   ./data-restore.sh                       # use newest dump found in ~/shadraw-studio/
+# Destructive: replaces existing Postgres + MinIO contents.
+#
+# Usage (on VPS, run from wherever the compose file lives):
+#   ./data-restore.sh                       # newest dump found in ~, .., .
 #   ./data-restore.sh --yes                 # skip confirmation
-#   ./data-restore.sh \                     # explicit files
-#     --pg-dump ~/shadraw-studio/foo.dump \
-#     --minio-tgz ~/shadraw-studio/bar.tgz
+#   ./data-restore.sh --pg-dump foo.dump --minio-tgz bar.tgz
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-COMPOSE_FILE="docker-compose.prod.yml"
-ENV_FILE=".env"
 PG_DUMP=""
 MINIO_TGZ=""
 ASSUME_YES=0
@@ -28,89 +25,127 @@ while [[ $# -gt 0 ]]; do
     --pg-dump)    PG_DUMP="$2"; shift 2 ;;
     --minio-tgz)  MINIO_TGZ="$2"; shift 2 ;;
     --yes|-y)     ASSUME_YES=1; shift ;;
-    -h|--help)    sed -n '2,15p' "$0"; exit 0 ;;
+    -h|--help)    sed -n '2,16p' "$0"; exit 0 ;;
     *)            echo "❌ Unknown option: $1" >&2; exit 1 ;;
   esac
 done
 
-# Defaults: pick the newest matching file in ~/shadraw-studio/
-if [[ -z "${PG_DUMP}" ]]; then
-  PG_DUMP=$(ls -1t "$HOME/shadraw-studio/shadraw-pg-"*.dump 2>/dev/null | head -1 || true)
-fi
-if [[ -z "${MINIO_TGZ}" ]]; then
-  MINIO_TGZ=$(ls -1t "$HOME/shadraw-studio/shadraw-minio-"*.tgz 2>/dev/null | head -1 || true)
-fi
-
-if [[ ! -f "${PG_DUMP}" ]]; then
-  echo "❌ Postgres dump not found. Pass --pg-dump or put it under ~/shadraw-studio/" >&2
-  exit 1
-fi
-if [[ ! -f "${MINIO_TGZ}" ]]; then
-  echo "❌ MinIO tar not found. Pass --minio-tgz or put it under ~/shadraw-studio/" >&2
-  exit 1
-fi
-if [[ ! -f "${ENV_FILE}" ]]; then
-  echo "❌ ${ENV_FILE} not found in $(pwd). Run setup per deploy/README.md first." >&2
+# --- Detect mode + compose file ----------------------------------------------
+MODE=""
+COMPOSE_FILE=""
+if   [[ -f "docker-compose.deps.yml" ]]; then
+  MODE="binary"; COMPOSE_FILE="docker-compose.deps.yml"
+elif [[ -f "docker-compose.prod.yml" ]]; then
+  MODE="docker"; COMPOSE_FILE="docker-compose.prod.yml"
+else
+  echo "❌ Neither docker-compose.deps.yml nor docker-compose.prod.yml in $(pwd)" >&2
+  echo "   Run this script from /opt/shadraw-studio (binary mode) or deploy/ (docker mode)" >&2
   exit 1
 fi
 
-COMPOSE="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
+ENV_FILE=".env"
+[[ -f "${ENV_FILE}" ]] || { echo "❌ ${ENV_FILE} not found in $(pwd)." >&2; exit 1; }
+
+# --- Locate dump files (search ., .., ~, ~/shadraw-studio) -------------------
+search_dump() {
+  local pattern="$1"
+  for d in . .. "$HOME" "$HOME/shadraw-studio"; do
+    local f
+    f=$(ls -1t "${d}/${pattern}" 2>/dev/null | head -1 || true)
+    [[ -n "${f}" ]] && { echo "${f}"; return; }
+  done
+}
+
+[[ -z "${PG_DUMP}"   ]] && PG_DUMP=$(search_dump "shadraw-pg-*.dump")
+[[ -z "${MINIO_TGZ}" ]] && MINIO_TGZ=$(search_dump "shadraw-minio-*.tgz")
+
+[[ -f "${PG_DUMP}"   ]] || { echo "❌ Postgres dump not found. Pass --pg-dump." >&2; exit 1; }
+[[ -f "${MINIO_TGZ}" ]] || { echo "❌ MinIO tar not found. Pass --minio-tgz." >&2; exit 1; }
 
 # Load DB credentials from .env so we can pass to pg_restore explicitly.
 set -a; source "${ENV_FILE}"; set +a
 
+COMPOSE="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
+
+# --- Detect systemd service (binary mode only) -------------------------------
+HAS_SYSTEMD=0
+if [[ "${MODE}" == "binary" ]] && systemctl list-unit-files shadraw-api.service >/dev/null 2>&1; then
+  HAS_SYSTEMD=1
+fi
+
+# --- Plan summary ------------------------------------------------------------
 echo "▶︎ Plan:"
-echo "    pg_dump file   : ${PG_DUMP} ($(du -h "${PG_DUMP}" | cut -f1))"
-echo "    minio tar      : ${MINIO_TGZ} ($(du -h "${MINIO_TGZ}" | cut -f1))"
-echo "    target db      : ${POSTGRES_USER}@db/${POSTGRES_DB}"
-echo "    compose file   : ${COMPOSE_FILE}"
+echo "    mode         : ${MODE}"
+echo "    compose file : ${COMPOSE_FILE}"
+echo "    pg dump      : ${PG_DUMP} ($(du -h "${PG_DUMP}" | cut -f1))"
+echo "    minio tar    : ${MINIO_TGZ} ($(du -h "${MINIO_TGZ}" | cut -f1))"
+echo "    target db    : ${POSTGRES_USER}@db/${POSTGRES_DB}"
+[[ ${HAS_SYSTEMD} -eq 1 ]] && echo "    systemd unit : shadraw-api.service (will be stopped & restarted)"
 echo ""
 echo "⚠️  THIS WILL REPLACE all data in Postgres + MinIO with the dumps."
 echo ""
 
 if [[ ${ASSUME_YES} -ne 1 ]]; then
   read -p "Proceed? (type 'yes' to continue) " ans
-  if [[ "${ans}" != "yes" ]]; then
-    echo "Aborted."; exit 1
-  fi
+  [[ "${ans}" == "yes" ]] || { echo "Aborted."; exit 1; }
 fi
 
-echo ""
-echo "▶︎ Starting db + minio only..."
+# --- Stop API (binary mode) --------------------------------------------------
+if [[ ${HAS_SYSTEMD} -eq 1 ]] && systemctl is-active --quiet shadraw-api; then
+  echo "▶︎ Stopping shadraw-api systemd service..."
+  sudo systemctl stop shadraw-api
+fi
+
+# --- Start db + minio --------------------------------------------------------
+echo "▶︎ Ensuring db + minio are up..."
 ${COMPOSE} up -d db minio
 
-echo "▶︎ Waiting for db to be ready..."
+echo "▶︎ Waiting for db..."
 until ${COMPOSE} exec -T db pg_isready -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" >/dev/null 2>&1; do
   sleep 1
 done
 
+# --- Postgres restore --------------------------------------------------------
 echo "▶︎ Restoring Postgres (--clean --if-exists)..."
 cat "${PG_DUMP}" | ${COMPOSE} exec -T db \
   pg_restore -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" --clean --if-exists
 
-echo "▶︎ Stopping MinIO to swap data..."
+# --- MinIO swap --------------------------------------------------------------
+echo "▶︎ Stopping MinIO to swap volume contents..."
 ${COMPOSE} stop minio
 
-# Find the actual named volume (compose project prefix varies)
 MINIO_VOL=$(docker volume ls --format "{{.Name}}" | grep -i miniodata | head -1)
-if [[ -z "${MINIO_VOL}" ]]; then
-  echo "❌ Could not find miniodata volume. Try: docker volume ls" >&2
-  exit 1
-fi
+[[ -n "${MINIO_VOL}" ]] || { echo "❌ miniodata volume not found." >&2; exit 1; }
 echo "    MinIO volume: ${MINIO_VOL}"
 
-echo "▶︎ Extracting MinIO tar into volume..."
-# Use abs path to tar file so it works inside the temporary alpine container's mount
 ABS_TGZ=$(cd "$(dirname "${MINIO_TGZ}")" && pwd)/$(basename "${MINIO_TGZ}")
 docker run --rm \
   -v "${MINIO_VOL}":/data \
   -v "${ABS_TGZ}":/backup.tgz:ro \
   alpine sh -c "cd /data && rm -rf .minio.sys shadraw && tar xzf /backup.tgz"
 
-echo "▶︎ Starting MinIO + full stack..."
-${COMPOSE} up -d
+echo "▶︎ Starting MinIO..."
+${COMPOSE} start minio
 
-echo ""
-echo "✓ Restore complete. api log (Ctrl+C to detach):"
-echo ""
-${COMPOSE} logs --tail=30 -f api
+# --- Start API back up -------------------------------------------------------
+if [[ "${MODE}" == "binary" ]]; then
+  if [[ ${HAS_SYSTEMD} -eq 1 ]]; then
+    echo "▶︎ Starting shadraw-api systemd service..."
+    sudo systemctl start shadraw-api
+    sleep 2
+    sudo systemctl status shadraw-api --no-pager -n 10
+    echo ""
+    echo "✓ Restore complete. Recent journal:"
+    sudo journalctl -u shadraw-api -n 20 --no-pager
+  else
+    echo "⚠️  systemd unit not installed; api won't auto-start."
+    echo "   See deploy/deploy-binary.sh output for setup steps."
+  fi
+else
+  # Docker mode: bring api container back too
+  echo "▶︎ Starting api container..."
+  ${COMPOSE} up -d
+  echo ""
+  echo "✓ Restore complete. api log (Ctrl+C to detach):"
+  ${COMPOSE} logs --tail=30 -f api
+fi

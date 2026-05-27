@@ -31,6 +31,7 @@ rsync -avz --progress \
   deploy/docker-compose.deps.yml \
   deploy/shadraw-api.service \
   deploy/.env.prod.example \
+  deploy/data-restore.sh \
   "${TARGET}:${REMOTE_PATH}/"
 
 cat <<EOF
