@@ -7,6 +7,14 @@
 # Stage 2: build backend (Go) and embed /src/web/dist into the binary
 # Stage 3: distroless runtime image with the binary + migrations
 
+# Default to DaoCloud's mirror so the build works on networks that can't reach
+# gcr.io directly (Aliyun mainland regions, etc.). Override with --build-arg
+# in environments where gcr.io is fast:
+#   docker build --build-arg RUNTIME_IMAGE=gcr.io/distroless/static:nonroot ...
+# Note: ARG referenced in a FROM must be declared in the global scope, i.e.
+# before any FROM instruction.
+ARG RUNTIME_IMAGE=m.daocloud.io/gcr.io/distroless/static:nonroot
+
 # --- Stage 1: frontend builder -------------------------------------------------
 FROM node:20-alpine AS frontend-builder
 WORKDIR /src/web
@@ -44,11 +52,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o /out/server ./cmd/server
 
 # --- Stage 3: runtime ----------------------------------------------------------
-# Default to DaoCloud's mirror so the build works on networks that can't reach
-# gcr.io directly (Aliyun mainland regions, etc.). Override with --build-arg
-# for environments where gcr.io is fast (`docker build --build-arg
-# RUNTIME_IMAGE=gcr.io/distroless/static:nonroot ...`).
-ARG RUNTIME_IMAGE=m.daocloud.io/gcr.io/distroless/static:nonroot
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=backend-builder /out/server /app/server
