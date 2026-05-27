@@ -43,13 +43,13 @@
 
 ## nginx 反代
 
-api 容器把 8080 端口绑在宿主机 loopback 上,**外部不可达**,只能通过宿主机
+api 容器把 8088 端口绑在宿主机 loopback 上,**外部不可达**,只能通过宿主机
 nginx 访问。前端 + API 都从同一个 upstream 出,所以 nginx 只要 1 条
 `location /`:
 
 | 服务 | 宿主端口 | nginx 上游 |
 |---|---|---|
-| api (Go + 内嵌 SPA) | `127.0.0.1:8080` | `location /` |
+| api (Go + 内嵌 SPA) | `127.0.0.1:8088` | `location /` |
 | Postgres | (仅 docker 内网) | 不暴露 |
 | MinIO | (仅 docker 内网) | 不暴露 |
 
@@ -57,7 +57,7 @@ nginx server 块的核心:
 
 ```nginx
 location / {
-    proxy_pass         http://127.0.0.1:8080;
+    proxy_pass         http://127.0.0.1:8088;
     proxy_http_version 1.1;
     proxy_set_header   Host              $host;
     proxy_set_header   X-Real-IP         $remote_addr;
@@ -116,11 +116,11 @@ cd ~/shadraw-studio/deploy
 ## 故障排查
 
 - 容器没起:`./deploy.sh ps` + `./deploy.sh logs`
-- nginx 502:确认 api 容器在跑 (`docker compose ps`) 且监听的是 `127.0.0.1:8080`
-  (`ss -tlnp | grep 8080`)
+- nginx 502:确认 api 容器在跑 (`docker compose ps`) 且监听的是 `127.0.0.1:8088`
+  (`ss -tlnp | grep 8088`)
 - 前端能开但 API 报 404:检查 nginx 是不是被改成了"按路径分流"。同源
   方案下,nginx 只要 1 条 `location /`,API 路径由 Go 自己识别;额外加
-  `location /api/` 也无害,但别忘了它也指向同一个 `127.0.0.1:8080`
+  `location /api/` 也无害,但别忘了它也指向同一个 `127.0.0.1:8088`
 - 刷新非根路径返回 404:不是 Go 的问题就是 nginx 的 `try_files` 在搞乱
   事 — 删掉相关指令,让 Go 来处理 SPA fallback
 - 升级后页面没变:浏览器缓存,可以 hard refresh,或者确认镜像确实重建

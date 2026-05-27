@@ -6,7 +6,7 @@
 
 ## 通用约定
 
-- Base URL：`http://localhost:8080/api/v1`（生产替换为部署 origin）
+- Base URL：`http://localhost:8088/api/v1`（生产替换为部署 origin）
 - 响应外壳：`{ "data": <T>, "error": null | { code, message, fields? }, "meta"?: ... }`
 - 鉴权：受保护接口需 `Authorization: Bearer <accessToken>`
 - ID：JSON 中**永远是字符串**

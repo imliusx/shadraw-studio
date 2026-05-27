@@ -57,7 +57,7 @@ docker compose up -d db minio    # 仅起依赖
 go run ./cmd/server               # 主机直接跑 Go,方便调试
 # 首次启动会看到一条 ADMIN BOOTSTRAP 日志,里面有 admin 临时密码 — 拷下来后立即登录改密码
 
-curl localhost:8080/healthz
+curl localhost:8088/healthz
 ```
 
 完整 docker compose 起 (包含 api 容器,模拟生产):
@@ -70,7 +70,7 @@ docker compose up --build
 
 | Key | 必填 | 说明 |
 |---|---|---|
-| `PORT` | | 监听端口 (默认 8080) |
+| `PORT` | | 监听端口 (默认 8088) |
 | `LOG_LEVEL` | | debug/info/warn/error (默认 info) |
 | `DB_DSN` | ✅ | Postgres 连接串 |
 | `JWT_SECRET` | ✅ | ≥32 字符随机串,HS256 签名密钥 |

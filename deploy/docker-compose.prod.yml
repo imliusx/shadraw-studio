@@ -2,14 +2,14 @@
 # Run from this directory: `./deploy.sh` (or see commands inside).
 #
 # Topology:
-#   host nginx (TLS, 80/443) -> 127.0.0.1:8080 (api, all-in-one)
+#   host nginx (TLS, 80/443) -> 127.0.0.1:8088 (api, all-in-one)
 #     api serves both /api/* and the embedded Vite SPA on the same port.
 #   api -> db    (postgres, internal docker network only)
 #       -> minio (s3-compatible, internal docker network only)
 #
 # Only `api` publishes a port — and only to the loopback interface,
 # so it is unreachable from the public network. nginx on the host
-# reverse-proxies external traffic with a single `location / -> 127.0.0.1:8080`.
+# reverse-proxies external traffic with a single `location / -> 127.0.0.1:8088`.
 
 name: shadraw
 
@@ -71,7 +71,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     environment:
-      PORT: 8080
+      PORT: 8088
       LOG_LEVEL: info
       DB_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
       JWT_SECRET: ${JWT_SECRET}
@@ -86,7 +86,7 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_USE_PATH_STYLE: "true"
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8088:8088"
     networks: [shadraw-net]
     restart: unless-stopped
 

@@ -31,7 +31,7 @@ shadraw-studio/
 docker compose up -d db minio
 ```
 
-### 2. 启动后端 API (端口 8080)
+### 2. 启动后端 API (端口 8088)
 
 ```bash
 cp .env.example .env        # 按需修改 DB / MinIO / JWT 配置
@@ -46,7 +46,7 @@ npm install
 npm run dev
 ```
 
-打开浏览器访问 `http://localhost:3001`。前端在开发模式下走 Vite dev server,`/api/*` 请求由 Vite proxy 转发到后端 `http://localhost:8080`,无需配置 CORS、无需额外环境变量。
+打开浏览器访问 `http://localhost:3001`。前端在开发模式下走 Vite dev server,`/api/*` 请求由 Vite proxy 转发到后端 `http://localhost:8088`,无需配置 CORS、无需额外环境变量。
 
 ### 常用命令
 
@@ -63,11 +63,11 @@ npm run dev
 
 ## 生产部署
 
-生产环境通过 docker-compose 拉起 `db` / `minio` / `api` 三个服务,`api` 容器内已包含前端产物,对外只暴露一个 HTTP 端口 (默认 `127.0.0.1:8080`),宿主 nginx 单 `upstream` 反代即可。详细步骤、环境变量与 nginx 模板见 [`deploy/README.md`](deploy/README.md)。
+生产环境通过 docker-compose 拉起 `db` / `minio` / `api` 三个服务,`api` 容器内已包含前端产物,对外只暴露一个 HTTP 端口 (默认 `127.0.0.1:8088`),宿主 nginx 单 `upstream` 反代即可。详细步骤、环境变量与 nginx 模板见 [`deploy/README.md`](deploy/README.md)。
 
 ## 架构亮点
 
 - **单进程 / 单端口**: 前端 `vite build` 产物在 Docker 构建阶段拷入 `internal/web/dist/`,Go 通过 `//go:embed` 把整个 SPA 嵌入二进制。线上 `api` 容器既响应 `/api/v1/*` 业务接口,也响应根路径下的静态资源与 SPA 路由 fallback。
-- **nginx 单 upstream**: 不再需要为前端独立配置 `location /` 与后端 `location /api/`,宿主反代一条 `proxy_pass http://127.0.0.1:8080;` 即可。
+- **nginx 单 upstream**: 不再需要为前端独立配置 `location /` 与后端 `location /api/`,宿主反代一条 `proxy_pass http://127.0.0.1:8088;` 即可。
 - **无 CORS / 无环境基址**: 前端使用同源相对路径调用 API,删除了 `NEXT_PUBLIC_API_BASE` 与后端 CORS 中间件,运行时配置面更小。
 - **扁平 monorepo**: Go module 在仓库根,前端在 `web/`,Dockerfile 三阶段同时 build 两端,version 漂移问题消除。

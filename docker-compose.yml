@@ -52,7 +52,7 @@ services:
       minio-init:
         condition: service_completed_successfully
     environment:
-      PORT: 8080
+      PORT: 8088
       LOG_LEVEL: info
       DB_DSN: postgres://shadraw:shadraw@db:5432/shadraw?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
@@ -67,6 +67,6 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-shadrawsecret}
       S3_USE_PATH_STYLE: ${S3_USE_PATH_STYLE:-true}
     ports:
-      - "8080:8080"
+      - "8088:8088"
     volumes:
       - ./data:/app/data

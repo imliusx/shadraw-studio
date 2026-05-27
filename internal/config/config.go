@@ -31,7 +31,7 @@ type Config struct {
 // caught at boot.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:           getEnvInt("PORT", 8080),
+		Port:           getEnvInt("PORT", 8088),
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		DataDir:        getEnv("DATA_DIR", "./data"),
 		BlobDriver:     strings.ToLower(getEnv("BLOB_DRIVER", "local")),
