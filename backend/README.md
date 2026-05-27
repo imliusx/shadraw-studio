@@ -27,7 +27,7 @@ shadraw/
 │   ├── user/              # User model + Repository
 │   ├── config/            # 读 env（必填校验）
 │   ├── crypto/            # AES-GCM（占位，后续 admin upstream-config 使用）
-│   ├── httpx/             # 响应外壳 / 错误码 / 中间件 / CORS / 限流 / 校验
+│   ├── httpx/             # 响应外壳 / 错误码 / 中间件 / 限流 / 校验
 │   └── store/             # GORM Postgres 连接
 ├── migrations/            # 001_common, 002_users, 003_refresh_tokens
 ├── docs/
@@ -71,7 +71,6 @@ make run
 | `JWT_SECRET` | ✅ | ≥32 字符随机串，HS256 签名密钥 |
 | `ADMIN_EMAIL` | ✅ | 首位管理员邮箱，启动时引导 |
 | `MASTER_KEY` | ✅ | 32 字节 base64，后续 AES-GCM 加密 apiKey 用 |
-| `CORS_ORIGINS` | | 前端 origin 白名单，逗号分隔；默认 `http://localhost:3000` |
 | `BLOB_DRIVER` | | 图片存储驱动：`local` 或 `s3`，应用默认 `local`；`.env.example` 使用 `s3` 以配合 docker compose MinIO |
 | `DATA_DIR` | | 运行时数据目录，默认 `./data` |
 | `S3_ENDPOINT` | `BLOB_DRIVER=s3` 时必填 | S3 兼容 endpoint，例如 `http://localhost:9000` / `http://minio:9000` |

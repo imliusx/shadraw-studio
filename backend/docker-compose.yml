@@ -58,7 +58,6 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
       MASTER_KEY: ${MASTER_KEY:?MASTER_KEY is required}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       BLOB_DRIVER: ${BLOB_DRIVER:-local}
       DATA_DIR: /app/data
       S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}

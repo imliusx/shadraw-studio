@@ -26,6 +26,7 @@ import (
 	"github.com/liusx/shadraw/internal/store"
 	"github.com/liusx/shadraw/internal/upstream"
 	"github.com/liusx/shadraw/internal/user"
+	"github.com/liusx/shadraw/internal/web"
 	"github.com/liusx/shadraw/internal/worker"
 )
 
@@ -111,7 +112,6 @@ func run() error {
 		httpx.Logger(),
 		httpx.Recovery(),
 		httpx.SecurityHeaders(),
-		httpx.CORS(cfg.CORSOrigins),
 	)
 
 	engine.GET("/healthz", func(c *gin.Context) {
@@ -173,6 +173,10 @@ func run() error {
 		adminGroup.DELETE("/records/:id", adminHandler.DeleteRecord)
 		adminGroup.GET("/stats/overview", adminHandler.StatsOverview)
 	}
+
+	// SPA fallback: any non-API path serves the embedded Vite dist.
+	// Must be registered after all API routes are mounted.
+	engine.NoRoute(web.Handler())
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),

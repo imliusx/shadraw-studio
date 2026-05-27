@@ -16,7 +16,6 @@ type Config struct {
 	JWTSecret      string
 	AdminEmail     string
 	MasterKey      string
-	CORSOrigins    []string
 	DataDir        string
 	BlobDriver     string
 	S3Endpoint     string
@@ -82,14 +81,6 @@ func Load() (*Config, error) {
 		}
 		if len(s3Missing) > 0 {
 			return nil, fmt.Errorf("missing required s3 env: %s", strings.Join(s3Missing, ", "))
-		}
-	}
-
-	origins := getEnv("CORS_ORIGINS", "http://localhost:3000")
-	for _, o := range strings.Split(origins, ",") {
-		o = strings.TrimSpace(o)
-		if o != "" {
-			cfg.CORSOrigins = append(cfg.CORSOrigins, o)
 		}
 	}
 

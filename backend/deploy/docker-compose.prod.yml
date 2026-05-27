@@ -76,7 +76,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       MASTER_KEY: ${MASTER_KEY}
-      CORS_ORIGINS: ${SITE_URL}
       BLOB_DRIVER: s3
       DATA_DIR: /app/data
       S3_ENDPOINT: http://minio:9000

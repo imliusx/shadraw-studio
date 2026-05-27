@@ -1,5 +1,5 @@
 // Package httpx provides shared HTTP plumbing: envelope responses,
-// error codes, middlewares, CORS, rate limiting and validation glue.
+// error codes, middlewares, rate limiting and validation glue.
 package httpx
 
 import (
