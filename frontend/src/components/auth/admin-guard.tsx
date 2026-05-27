@@ -1,25 +1,23 @@
-"use client"
+import { useEffect } from "react"
+import { Outlet, useNavigate } from "react-router"
 
-import { useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
-
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { Spinner } from "@/components/ui/spinner"
 
-export function AdminGuard({ children }: { children: ReactNode }) {
-  const router = useRouter()
+export function AdminGuard() {
+  const navigate = useNavigate()
   const { user, isInitializing } = useAuth()
 
   useEffect(() => {
     if (isInitializing) return
     if (!user) {
-      router.replace("/login")
+      navigate("/login", { replace: true })
       return
     }
     if (user.role !== "admin") {
-      router.replace("/")
+      navigate("/", { replace: true })
     }
-  }, [isInitializing, user, router])
+  }, [isInitializing, user, navigate])
 
   if (isInitializing || !user || user.role !== "admin") {
     return (
@@ -28,5 +26,5 @@ export function AdminGuard({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  return <>{children}</>
+  return <Outlet />
 }

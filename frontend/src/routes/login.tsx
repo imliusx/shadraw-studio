@@ -1,18 +1,16 @@
-"use client"
-
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "react-router"
 
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { LoginForm } from "@/components/auth/login-form"
 
 export default function LoginPage() {
   const { user } = useAuth()
-  const router = useRouter()
+  const navigate = useNavigate()
 
   useEffect(() => {
-    if (user) router.replace("/")
-  }, [user, router])
+    if (user) navigate("/", { replace: true })
+  }, [user, navigate])
 
   if (user) return null
 

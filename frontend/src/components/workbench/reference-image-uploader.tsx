@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { ImagePlus, X } from "lucide-react"
@@ -77,7 +75,6 @@ export function ReferenceImageUploader({
               index > 0 && "-ml-2.5"
             )}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={dataUrl}
               alt={`参考图 ${index + 1}`}

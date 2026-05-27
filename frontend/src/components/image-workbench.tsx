@@ -1,7 +1,5 @@
-"use client"
-
 import * as React from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams } from "react-router"
 import { PanelLeft, PanelRight, PanelRightOpen } from "lucide-react"
 
 import {
@@ -29,7 +27,7 @@ import { PreviewStage } from "@/components/workbench/preview-stage"
 import {
   useActiveHistory,
   useHistory,
-} from "@/app/providers/app-state-provider"
+} from "@/providers/app-state-provider"
 import {
   DEFAULT_IMAGE_PARAMS,
   imageSizeToRatio,
@@ -52,7 +50,7 @@ export function ImageWorkbench() {
   const controlsPanelRef = React.useRef<PanelImperativeHandle | null>(null)
   const [controlsCollapsed, setControlsCollapsed] = React.useState(false)
 
-  const searchParams = useSearchParams()
+  const [searchParams] = useSearchParams()
   const { records, isHydrated } = useHistory()
   const [, setActive] = useActiveHistory()
   const appliedActiveIdRef = React.useRef<number | null>(null)

@@ -1,10 +1,8 @@
-"use client"
-
 import * as React from "react"
 import { Globe2 } from "lucide-react"
 import { toast } from "sonner"
 
-import { useConfig } from "@/app/providers/app-state-provider"
+import { useConfig } from "@/providers/app-state-provider"
 import { adminApi } from "@/lib/api/admin-client"
 import { ApiError } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"

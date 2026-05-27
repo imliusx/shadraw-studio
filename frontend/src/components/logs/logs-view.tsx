@@ -1,7 +1,5 @@
-"use client"
-
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "react-router"
 import { motion } from "motion/react"
 import {
   Check,
@@ -45,7 +43,7 @@ const GRID_TEMPLATE =
   "grid-cols-[10rem_8rem_minmax(20rem,1fr)_6rem_6rem_minmax(12rem,1fr)]"
 
 export function LogsView() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const { listContainer } = useMotionVariants()
   const viewportRef = React.useRef<HTMLDivElement>(null)
 
@@ -64,9 +62,9 @@ export function LogsView() {
 
   const handleRowClick = React.useCallback(
     (record: HistoryRecord) => {
-      router.push(`/?activeId=${record.id}`)
+      navigate(`/?activeId=${record.id}`)
     },
-    [router]
+    [navigate]
   )
 
   return (

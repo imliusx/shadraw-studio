@@ -1,13 +1,10 @@
-"use client"
-
 import { useEffect, useState, type FormEvent } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link, useNavigate } from "react-router"
 import { motion } from "motion/react"
 import { CircleAlert } from "lucide-react"
 import { toast } from "sonner"
 
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -73,7 +70,7 @@ function runValidation(values: Values): FieldErrors {
 }
 
 export function RegisterForm() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const { register, status, error, clearError } = useAuth()
   const { fadeInUp } = useMotionVariants()
 
@@ -140,7 +137,7 @@ export function RegisterForm() {
     })
     if (!success) return
     toast.success("账号创建成功")
-    router.replace("/")
+    navigate("/", { replace: true })
   }
 
   return (
@@ -267,7 +264,7 @@ export function RegisterForm() {
               <FieldDescription className="text-center">
                 已有账号？{" "}
                 <Link
-                  href="/login"
+                  to="/login"
                   className="font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   登录 →

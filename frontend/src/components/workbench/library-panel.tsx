@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { toast } from "sonner"
 import { AnimatePresence, motion } from "motion/react"
@@ -30,7 +28,7 @@ import {
   useGenerate,
   useHistory,
   useProjects,
-} from "@/app/providers/app-state-provider"
+} from "@/providers/app-state-provider"
 import { InfiniteLoadSentinel } from "@/components/infinite-load-sentinel"
 import {
   AlertDialog,

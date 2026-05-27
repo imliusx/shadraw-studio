@@ -1,6 +1,4 @@
-"use client"
-
-import { useApiStatus } from "@/app/providers/app-state-provider"
+import { useApiStatus } from "@/providers/app-state-provider"
 import {
   Tooltip,
   TooltipContent,

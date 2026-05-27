@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { toast } from "sonner"
 import { AnimatePresence, motion } from "motion/react"
@@ -10,7 +8,7 @@ import {
   Sparkles,
 } from "lucide-react"
 
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"

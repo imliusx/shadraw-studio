@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { motion } from "motion/react"
 import type { Layout } from "react-resizable-panels"
@@ -18,7 +16,7 @@ import { Codex, OpenAI } from "@lobehub/icons"
 import {
   useConfig,
   useGenerate,
-} from "@/app/providers/app-state-provider"
+} from "@/providers/app-state-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"

@@ -1,9 +1,7 @@
-"use client"
-
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
-import { useHistory, useLightbox } from "@/app/providers/app-state-provider"
+import { useHistory, useLightbox } from "@/providers/app-state-provider"
 import {
   PublishConfirmDialog,
   type PublishOptions,

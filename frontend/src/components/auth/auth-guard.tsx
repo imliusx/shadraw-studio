@@ -1,20 +1,18 @@
-"use client"
+import { useEffect } from "react"
+import { Outlet, useNavigate } from "react-router"
 
-import { useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
-
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { Spinner } from "@/components/ui/spinner"
 
-export function AuthGuard({ children }: { children: ReactNode }) {
-  const router = useRouter()
+export function AuthGuard() {
+  const navigate = useNavigate()
   const { user, isInitializing } = useAuth()
 
   useEffect(() => {
     if (!isInitializing && !user) {
-      router.replace("/login")
+      navigate("/login", { replace: true })
     }
-  }, [isInitializing, user, router])
+  }, [isInitializing, user, navigate])
 
   if (isInitializing || !user) {
     return (
@@ -23,5 +21,5 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       </div>
     )
   }
-  return <>{children}</>
+  return <Outlet />
 }

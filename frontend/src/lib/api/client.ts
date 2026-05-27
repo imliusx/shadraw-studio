@@ -1,9 +1,8 @@
 // 共用 HTTP client：统一响应外壳、错误码白名单、401 自动 refresh + 重试。
 // 业务接口（records / projects / admin）都通过此模块发请求。
+// 前端与后端同源部署，所有路径使用相对路径（生产同主机，dev 由 Vite proxy 转发）。
 
 import { tokenStorage, type StoredTokens } from "./auth-storage"
-
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8080"
 
 export type ApiErrorCode =
   | "validation_failed"
@@ -96,7 +95,7 @@ async function request<T>(
 
   let resp: Response
   try {
-    resp = await fetch(`${API_BASE}${path}`, { method, headers, body })
+    resp = await fetch(path, { method, headers, body })
   } catch (err) {
     throw new ApiError(
       "network_error",
@@ -136,7 +135,7 @@ async function tryRefresh(): Promise<boolean> {
   if (!tokens?.refreshToken) return false
   try {
     const headers = new Headers({ "Content-Type": "application/json" })
-    const resp = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+    const resp = await fetch(`/api/v1/auth/refresh`, {
       method: "POST",
       headers,
       body: JSON.stringify({ refreshToken: tokens.refreshToken }),
@@ -184,7 +183,7 @@ export async function fetchImageBlobURL(recordId: string): Promise<string> {
   const headers = new Headers()
   if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`)
   const path = `/api/v1/images/${recordId}`
-  const resp = await fetch(`${API_BASE}${path}`, { headers })
+  const resp = await fetch(path, { headers })
   if (!resp.ok) {
     throw new ApiError(
       "not_found",

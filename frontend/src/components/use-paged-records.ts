@@ -1,8 +1,6 @@
-"use client"
-
 import * as React from "react"
 
-import { useHistory } from "@/app/providers/app-state-provider"
+import { useHistory } from "@/providers/app-state-provider"
 import type { ListRecordsParams } from "@/lib/api/records-client"
 import type { HistoryRecord } from "@/components/workbench/types"
 

@@ -1,14 +1,11 @@
-"use client"
-
 import { useEffect, useState, type FormEvent } from "react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { Link, useNavigate } from "react-router"
 import { motion } from "motion/react"
 import { CircleAlert } from "lucide-react"
 import { toast } from "sonner"
 
-import { useConfig } from "@/app/providers/app-state-provider"
-import { useAuth } from "@/app/providers/auth-provider"
+import { useConfig } from "@/providers/app-state-provider"
+import { useAuth } from "@/providers/auth-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,7 +49,7 @@ function runValidation(values: { email: string; password: string }): FieldErrors
 }
 
 export function LoginForm() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const { config } = useConfig()
   const { login, status, error, clearError } = useAuth()
   const { fadeInUp } = useMotionVariants()
@@ -104,7 +101,7 @@ export function LoginForm() {
     if (!success) return
     const localPart = email.split("@")[0] || email
     toast.success(`欢迎回来，${localPart}`)
-    router.replace("/")
+    navigate("/", { replace: true })
   }
 
   return (
@@ -174,7 +171,7 @@ export function LoginForm() {
               <FieldDescription className="text-center">
                 还没有账号？{" "}
                 <Link
-                  href="/register"
+                  to="/register"
                   className="font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   立即注册 →

@@ -1,5 +1,3 @@
-"use client"
-
 import {
   createContext,
   useCallback,
@@ -27,7 +25,7 @@ import {
   dtoToRecordPatch,
 } from "@/lib/api/record-mappers"
 import { tokenStorage } from "@/lib/api/auth-storage"
-import { useAuth } from "@/app/providers/auth-provider"
+import { useAuth } from "@/providers/auth-provider"
 import type {
   ApiStatus,
   Config,

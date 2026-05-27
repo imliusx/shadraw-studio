@@ -1,8 +1,4 @@
-"use client"
-
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import Image from "next/image"
+import { Link, useLocation, useNavigate } from "react-router"
 import {
   Images,
   LogOut,
@@ -13,8 +9,8 @@ import {
 import { toast } from "sonner"
 import { motion } from "motion/react"
 
-import { useConfig, useSettingsDialog } from "@/app/providers/app-state-provider"
-import { useAuth, type AuthUser } from "@/app/providers/auth-provider"
+import { useConfig, useSettingsDialog } from "@/providers/app-state-provider"
+import { useAuth, type AuthUser } from "@/providers/auth-provider"
 import { ApiStatusIndicator } from "@/components/api-status-indicator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BrandLockup } from "@/components/brand-lockup"
@@ -44,8 +40,8 @@ function avatarLetter(user: AuthUser): string {
 }
 
 export function AppHeader() {
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = useLocation().pathname
+  const navigate = useNavigate()
   const { openSettings } = useSettingsDialog()
   const { config } = useConfig()
   const { user, logout } = useAuth()
@@ -55,7 +51,7 @@ export function AppHeader() {
   async function handleLogout() {
     await logout()
     toast.info("已退出登录")
-    router.replace("/login")
+    navigate("/login", { replace: true })
   }
 
   return (
@@ -67,13 +63,12 @@ export function AppHeader() {
     >
       <div className="flex min-w-0 items-center gap-8">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Image
+          <img
             src="/shadraw-logo.svg"
             alt=""
             width={24}
             height={24}
             className="size-6 shrink-0 rounded-md"
-            priority
           />
           <BrandLockup
             title={siteTitle}
@@ -93,7 +88,7 @@ export function AppHeader() {
                 size="sm"
                 className="h-8"
               >
-                <Link href={item.href}>
+                <Link to={item.href}>
                   <Icon />
                   {item.label}
                 </Link>
@@ -143,7 +138,7 @@ export function AppHeader() {
               </DropdownMenuItem>
               {user.role === "admin" ? (
                 <DropdownMenuItem
-                  onSelect={() => router.push("/admin")}
+                  onSelect={() => navigate("/admin")}
                 >
                   <Shield className="size-4" />
                   管理后台
@@ -159,10 +154,10 @@ export function AppHeader() {
         ) : (
           <div className="flex items-center gap-1">
             <Button asChild size="sm" variant="outline">
-              <Link href="/login">登录</Link>
+              <Link to="/login">登录</Link>
             </Button>
             <Button asChild size="sm">
-              <Link href="/register">注册</Link>
+              <Link to="/register">注册</Link>
             </Button>
           </div>
         )}

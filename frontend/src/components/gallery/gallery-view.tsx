@@ -1,7 +1,5 @@
-"use client"
-
 import * as React from "react"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "react-router"
 import { toast } from "sonner"
 import { motion } from "motion/react"
 import { MasonryPhotoAlbum, type Photo } from "react-photo-album"
@@ -25,7 +23,7 @@ import {
   useHistory,
   useLightbox,
   useProjects,
-} from "@/app/providers/app-state-provider"
+} from "@/providers/app-state-provider"
 import { InfiniteLoadSentinel } from "@/components/infinite-load-sentinel"
 import {
   AlertDialog,
@@ -147,7 +145,7 @@ export function GalleryView() {
   const { records, deleteRecord, updateRecord, reloadImage } = useHistory()
   const { projects } = useProjects()
   const { openWith } = useLightbox()
-  const router = useRouter()
+  const navigate = useNavigate()
   const viewportRef = React.useRef<HTMLDivElement>(null)
 
   const [scope, setScope] = React.useState<GalleryScope>("community")
@@ -359,10 +357,10 @@ export function GalleryView() {
 
   const handleReuse = React.useCallback(
     (record: HistoryRecord) => {
-      router.push(`/?activeId=${record.id}`)
+      navigate(`/?activeId=${record.id}`)
       toast.info("已切回工作台")
     },
-    [router]
+    [navigate]
   )
 
   const handleMoveToProject = React.useCallback(

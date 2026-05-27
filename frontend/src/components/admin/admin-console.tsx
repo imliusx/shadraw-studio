@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 
 import { RecordsCard } from "@/components/admin/records-card"

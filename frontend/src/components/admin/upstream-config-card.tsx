@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { toast } from "sonner"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"

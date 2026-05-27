@@ -1,5 +1,3 @@
-"use client"
-
 import {
   Dialog,
   DialogContent,
@@ -7,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { useSettingsDialog } from "@/app/providers/app-state-provider"
+import { useSettingsDialog } from "@/providers/app-state-provider"
 import { SettingsContent } from "@/components/settings/settings-view"
 
 export function SettingsDialog() {

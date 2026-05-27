@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { motion } from "motion/react"
 import { Activity, Eraser } from "lucide-react"
@@ -11,7 +9,7 @@ import {
   useEventLog,
   type EventLogEntry,
   type EventLogLevel,
-} from "@/app/providers/app-state-provider"
+} from "@/providers/app-state-provider"
 
 const LEVEL_LABEL: Record<EventLogLevel, string> = {
   info: "INFO ",
