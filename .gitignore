@@ -24,6 +24,7 @@ tmp/
 data/
 minio-data/
 pgdata/
+backup/
 .gocache/
 .cache/
 *.test

@@ -11,7 +11,7 @@ shadraw-studio/
 ├── migrations/      SQL 迁移
 ├── web/             Vite + React 19 + React Router 的 SPA, build 产物 embed 进二进制
 ├── deploy/          docker-compose / 生产部署脚本与文档
-├── docs/            后端 API / DB / 模块文档 (见 [docs/backend.md](docs/backend.md))
+├── docs/            后端 API / DB / 模块文档 (见 [docs/backend.md](docs/backend.md) 和 [docs/deploy-migration.md](docs/deploy-migration.md))
 ├── go.mod           Go module 根 (module github.com/liusx/shadraw)
 ├── Dockerfile       三阶段 build (web -> Go -> distroless)
 └── docker-compose.yml  本地依赖 stack (Postgres + MinIO + api)
