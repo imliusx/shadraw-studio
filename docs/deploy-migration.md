@@ -6,6 +6,22 @@
 
 ---
 
+## TL;DR (用脚本)
+
+```bash
+# 1. 本地导出 + 直接 scp 到 VPS
+./deploy/data-export.sh --scp user@vps
+
+# 2. SSH 上 VPS 跑还原
+ssh user@vps 'cd ~/shadraw-studio/deploy && ./data-restore.sh'
+```
+
+`data-restore.sh` 会弹一次确认提示 (因为是覆盖操作),输入 `yes` 继续。完了自动 tail api 日志,Ctrl+C 退出。
+
+后面的章节是上面两条命令背后的全过程拆解,需要排错 / 自定义路径 / 理解发生了什么时翻下面。
+
+---
+
 ## 0. 数据分布
 
 本地工作区 (`shadraw-studio/`) 有三个数据目录,都是 `.gitignore` 的:
