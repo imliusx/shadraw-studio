@@ -16,6 +16,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+echo "▶︎ data-restore.sh starting (cwd: $(pwd))..."
+
 PG_DUMP=""
 MINIO_TGZ=""
 ASSUME_YES=0
@@ -42,35 +44,53 @@ else
   echo "   Run this script from /opt/shadraw-studio (binary mode) or deploy/ (docker mode)" >&2
   exit 1
 fi
+echo "  mode = ${MODE}, compose = ${COMPOSE_FILE}"
 
 ENV_FILE=".env"
 [[ -f "${ENV_FILE}" ]] || { echo "❌ ${ENV_FILE} not found in $(pwd)." >&2; exit 1; }
+echo "  env  = $(pwd)/${ENV_FILE}"
 
 # --- Locate dump files (search ., .., ~, ~/shadraw-studio) -------------------
+# Note: function returns 0 explicitly to avoid set -e tripping on last [[...]] test.
 search_dump() {
   local pattern="$1"
+  local d f
   for d in . .. "$HOME" "$HOME/shadraw-studio"; do
-    local f
     f=$(ls -1t "${d}/${pattern}" 2>/dev/null | head -1 || true)
-    [[ -n "${f}" ]] && { echo "${f}"; return; }
+    if [[ -n "${f}" ]]; then
+      echo "${f}"
+      return 0
+    fi
   done
+  return 0
 }
 
-[[ -z "${PG_DUMP}"   ]] && PG_DUMP=$(search_dump "shadraw-pg-*.dump")
-[[ -z "${MINIO_TGZ}" ]] && MINIO_TGZ=$(search_dump "shadraw-minio-*.tgz")
+if [[ -z "${PG_DUMP}"   ]]; then PG_DUMP=$(search_dump "shadraw-pg-*.dump"); fi
+if [[ -z "${MINIO_TGZ}" ]]; then MINIO_TGZ=$(search_dump "shadraw-minio-*.tgz"); fi
+
+echo "  pg   = ${PG_DUMP:-<not found>}"
+echo "  tgz  = ${MINIO_TGZ:-<not found>}"
 
 [[ -f "${PG_DUMP}"   ]] || { echo "❌ Postgres dump not found. Pass --pg-dump." >&2; exit 1; }
 [[ -f "${MINIO_TGZ}" ]] || { echo "❌ MinIO tar not found. Pass --minio-tgz." >&2; exit 1; }
 
 # Load DB credentials from .env so we can pass to pg_restore explicitly.
-set -a; source "${ENV_FILE}"; set +a
+# Temporarily relax `set -u` because users sometimes put references to unset
+# vars or quoting that bash's source can't reconcile under nounset.
+set +u
+set -a
+source "${ENV_FILE}"
+set +a
+set -u
 
 COMPOSE="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
 
 # --- Detect systemd service (binary mode only) -------------------------------
 HAS_SYSTEMD=0
-if [[ "${MODE}" == "binary" ]] && systemctl list-unit-files shadraw-api.service >/dev/null 2>&1; then
-  HAS_SYSTEMD=1
+if [[ "${MODE}" == "binary" ]]; then
+  if systemctl list-unit-files shadraw-api.service >/dev/null 2>&1; then
+    HAS_SYSTEMD=1
+  fi
 fi
 
 # --- Plan summary ------------------------------------------------------------
