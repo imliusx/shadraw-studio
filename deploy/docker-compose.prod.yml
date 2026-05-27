@@ -2,14 +2,14 @@
 # Run from this directory: `./deploy.sh` (or see commands inside).
 #
 # Topology:
-#   host nginx (TLS, 80/443) -> 127.0.0.1:3000 (web / next.js)
-#                            -> 127.0.0.1:8080 (api  / go)
+#   host nginx (TLS, 80/443) -> 127.0.0.1:8080 (api, all-in-one)
+#     api serves both /api/* and the embedded Vite SPA on the same port.
 #   api -> db    (postgres, internal docker network only)
 #       -> minio (s3-compatible, internal docker network only)
 #
-# Only `web` and `api` publish ports — and only to the loopback interface,
-# so they are unreachable from the public network. nginx on the host
-# reverse-proxies external traffic to them.
+# Only `api` publishes a port — and only to the loopback interface,
+# so it is unreachable from the public network. nginx on the host
+# reverse-proxies external traffic with a single `location / -> 127.0.0.1:8080`.
 
 name: shadraw
 
@@ -64,6 +64,7 @@ services:
   api:
     build:
       context: ..
+      dockerfile: backend/Dockerfile
     depends_on:
       db:
         condition: service_healthy
@@ -86,20 +87,6 @@ services:
       S3_USE_PATH_STYLE: "true"
     ports:
       - "127.0.0.1:8080:8080"
-    networks: [shadraw-net]
-    restart: unless-stopped
-
-  web:
-    build:
-      context: ../../shadraw-ui
-      args:
-        NEXT_PUBLIC_API_BASE: ${SITE_URL}
-    environment:
-      NODE_ENV: production
-    depends_on:
-      - api
-    ports:
-      - "127.0.0.1:3000:3000"
     networks: [shadraw-net]
     restart: unless-stopped
 

@@ -28,10 +28,8 @@ case "${1:-up}" in
     echo "▶︎ Building & starting shadraw stack..."
     $COMPOSE up -d --build --remove-orphans
     echo ""
-    echo "✓ Done. Services bound to host:"
-    echo "    web  -> 127.0.0.1:3000  (point nginx 'location /'         here)"
-    echo "    api  -> 127.0.0.1:8080  (point nginx 'location /api/' and"
-    echo "                              'location = /healthz' here)"
+    echo "✓ Done. All-in-one binary serving frontend + API on 127.0.0.1:8080."
+    echo "  Point nginx 'location /' here."
     ;;
   down)
     $COMPOSE down --remove-orphans

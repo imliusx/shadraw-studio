@@ -1,0 +1,61 @@
+# Root-level .dockerignore for the monorepo build context.
+# The api image uses `context: ..` from deploy/, so both backend/ and frontend/
+# are part of the build context. Exclude dev/test/local-only paths.
+
+# ---- VCS / OS / IDE ----
+.git
+.gitignore
+.DS_Store
+.vscode
+.idea
+
+# ---- Trellis / Claude / AI tooling (not for image) ----
+.trellis
+.claude
+.agents
+AGENTS.md
+CLAUDE.md
+PROJECT.md
+skills-lock.json
+.mcp.json
+
+# ---- Top-level docs / deploy harness (not needed inside image) ----
+README.md
+deploy/
+
+# ---- Backend local artifacts ----
+backend/.git
+backend/.gitignore
+backend/.dockerignore
+backend/.env
+backend/.env.*
+backend/data/
+backend/pgdata/
+backend/minio-data/
+backend/.cache/
+backend/.gocache/
+backend/tmp/
+backend/bin/
+backend/docker-compose.yml
+backend/README.md
+backend/*.test
+backend/*.out
+
+# Embedded dist is written by the frontend-builder stage; never ship the
+# (potentially stale) host copy into the build context.
+backend/internal/web/dist/
+
+# ---- Frontend local artifacts ----
+frontend/node_modules
+frontend/.next
+frontend/dist
+frontend/build
+frontend/out
+frontend/coverage
+frontend/.git
+frontend/.gitignore
+frontend/.dockerignore
+frontend/.env
+frontend/.env.*
+frontend/*.log
+frontend/README.md
