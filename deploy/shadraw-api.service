@@ -1,0 +1,31 @@
+[Unit]
+Description=shadraw API server (binary + embedded SPA)
+Documentation=https://github.com/imliusx/shadraw-studio
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/shadraw-studio
+EnvironmentFile=/opt/shadraw-studio/.env
+
+ExecStart=/opt/shadraw-studio/server-linux-amd64
+
+# Resilience
+Restart=on-failure
+RestartSec=5s
+
+# Logs go to journald
+StandardOutput=journal
+StandardError=journal
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/shadraw-studio/data
+
+[Install]
+WantedBy=multi-user.target
