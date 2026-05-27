@@ -17,44 +17,41 @@ Thumbs.db
 !.env.prod.example
 
 # ============================================================
-# Backend (Go)
+# Backend (Go) — module root is the repo root
 # ============================================================
-backend/bin/
-backend/tmp/
-backend/data/
-backend/minio-data/
-backend/pgdata/
-backend/.gocache/
-backend/.cache/
+bin/
+tmp/
+data/
+minio-data/
+pgdata/
+.gocache/
+.cache/
 *.test
 *.out
 coverage.txt
 
 # Embedded Vite dist (filled at build time, not tracked)
-backend/internal/web/dist/*
-!backend/internal/web/dist/.gitkeep
+internal/web/dist/*
+!internal/web/dist/.gitkeep
 
 # ============================================================
-# Frontend (Vite / Next.js)
+# Frontend (Vite) — lives under web/
 # ============================================================
-frontend/node_modules/
-frontend/.pnp
-frontend/.pnp.*
-frontend/.yarn/*
-!frontend/.yarn/patches
-!frontend/.yarn/plugins
-!frontend/.yarn/releases
-!frontend/.yarn/versions
+web/node_modules/
+web/.pnp
+web/.pnp.*
+web/.yarn/*
+!web/.yarn/patches
+!web/.yarn/plugins
+!web/.yarn/releases
+!web/.yarn/versions
 
 # build artifacts
-frontend/.next/
-frontend/out/
-frontend/build/
-frontend/dist/
-frontend/coverage/
-
-# next.js generated
-frontend/next-env.d.ts
+web/.next/
+web/out/
+web/build/
+web/dist/
+web/coverage/
 
 # typescript
 *.tsbuildinfo

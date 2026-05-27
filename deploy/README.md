@@ -9,14 +9,16 @@
 ## VPS 上的目录布局
 
 ```
-~/shadraw-studio/        # monorepo (本仓库)
-├── backend/             # Go API + 内嵌前端
-├── frontend/            # Vite + React SPA (build 时 embed 进 backend)
-└── deploy/              # ← 在这里跑 ./deploy.sh
+~/shadraw-studio/        # monorepo (本仓库, 同时是 Go module root)
+├── cmd/ internal/ migrations/  # Go API + 内嵌前端
+├── web/                 # Vite + React SPA (build 时 embed 进二进制)
+├── Dockerfile           # 三阶段构建 (web -> Go -> distroless)
+├── docker-compose.yml   # 本地开发 stack
+└── deploy/              # ← 在这里跑 ./deploy.sh (生产 compose + 脚本)
 ```
 
 `docker-compose.prod.yml` 的 build context 是 monorepo 根 (`..`),Dockerfile
-是 `backend/Dockerfile` (三阶段,先 build frontend 再 build backend 再打 distroless)。
+是根目录的 `Dockerfile` (三阶段,先 build web 前端再 build Go 后端再打 distroless)。
 
 ## 首次部署
 

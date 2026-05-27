@@ -1,40 +1,43 @@
 # syntax=docker/dockerfile:1.6
 #
 # Multi-stage build for shadraw all-in-one image.
-# Build context is the monorepo root (parent of backend/ and frontend/),
-# so all COPY paths are prefixed accordingly.
+# Build context is the monorepo root (contains web/ and the Go module at root).
 #
-# Stage 1: build frontend (Vite) -> /src/frontend/dist
-# Stage 2: build backend (Go) and embed /src/frontend/dist into the binary
+# Stage 1: build frontend (Vite) -> /src/web/dist
+# Stage 2: build backend (Go) and embed /src/web/dist into the binary
 # Stage 3: distroless runtime image with the binary + migrations
 
 # --- Stage 1: frontend builder -------------------------------------------------
 FROM node:20-alpine AS frontend-builder
-WORKDIR /src/frontend
+WORKDIR /src/web
 
 # Install deps with a clean, lockfile-pinned install for reproducible builds.
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY web/package.json web/package-lock.json* ./
 RUN npm ci
 
 # Copy the rest of the frontend source and build the SPA.
-COPY frontend/ ./
+COPY web/ ./
 RUN npm run build
-# Produces: /src/frontend/dist
+# Produces: /src/web/dist
 
 # --- Stage 2: backend builder --------------------------------------------------
 FROM golang:1.26-alpine AS backend-builder
-WORKDIR /src/backend
+WORKDIR /src
 
 RUN apk add --no-cache git ca-certificates
 
 # Cache go module downloads in a dedicated layer.
-COPY backend/go.mod backend/go.sum* ./
+COPY go.mod go.sum* ./
 RUN go mod download
 
-# Copy backend source, then drop the freshly-built frontend dist into the
-# embed path so `//go:embed all:dist` in internal/web picks it up.
-COPY backend/ ./
-COPY --from=frontend-builder /src/frontend/dist ./internal/web/dist
+# Copy only the Go source trees needed for `go build ./cmd/server` so the
+# build context's web/, deploy/, docs/ etc. don't bust the layer cache.
+# Then drop the freshly-built frontend dist into the embed path so
+# `//go:embed all:dist` in internal/web picks it up.
+COPY cmd ./cmd
+COPY internal ./internal
+COPY migrations ./migrations
+COPY --from=frontend-builder /src/web/dist ./internal/web/dist
 
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
@@ -44,7 +47,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /app
 COPY --from=backend-builder /out/server /app/server
-COPY backend/migrations /app/migrations
+COPY migrations /app/migrations
 
 EXPOSE 8080
 USER nonroot:nonroot

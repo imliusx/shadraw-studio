@@ -1,6 +1,9 @@
 # Root-level .dockerignore for the monorepo build context.
-# The api image uses `context: ..` from deploy/, so both backend/ and frontend/
-# are part of the build context. Exclude dev/test/local-only paths.
+# The api image uses `context: ..` from deploy/ (i.e. repo root).
+# The Dockerfile only COPYs:
+#   - web/ (frontend source for stage 1)
+#   - go.mod, go.sum, cmd, internal, migrations (Go source for stage 2)
+# Everything else can be excluded.
 
 # ---- VCS / OS / IDE ----
 .git
@@ -19,43 +22,47 @@ PROJECT.md
 skills-lock.json
 .mcp.json
 
-# ---- Top-level docs / deploy harness (not needed inside image) ----
+# ---- Top-level files / dirs not needed inside the image ----
 README.md
 deploy/
+docs/
+Makefile
+.golangci.yml
+.github/
+docker-compose.yml
+Dockerfile
+.dockerignore
+.env
+.env.*
+!.env.example
+!.env.prod.example
 
-# ---- Backend local artifacts ----
-backend/.git
-backend/.gitignore
-backend/.dockerignore
-backend/.env
-backend/.env.*
-backend/data/
-backend/pgdata/
-backend/minio-data/
-backend/.cache/
-backend/.gocache/
-backend/tmp/
-backend/bin/
-backend/docker-compose.yml
-backend/README.md
-backend/*.test
-backend/*.out
+# ---- Backend local artifacts (Go module at repo root) ----
+data/
+pgdata/
+minio-data/
+.cache/
+.gocache/
+tmp/
+bin/
+*.test
+*.out
 
 # Embedded dist is written by the frontend-builder stage; never ship the
 # (potentially stale) host copy into the build context.
-backend/internal/web/dist/
+internal/web/dist/
 
-# ---- Frontend local artifacts ----
-frontend/node_modules
-frontend/.next
-frontend/dist
-frontend/build
-frontend/out
-frontend/coverage
-frontend/.git
-frontend/.gitignore
-frontend/.dockerignore
-frontend/.env
-frontend/.env.*
-frontend/*.log
-frontend/README.md
+# ---- Frontend local artifacts (web/) ----
+web/node_modules
+web/.next
+web/dist
+web/build
+web/out
+web/coverage
+web/.env
+web/.env.*
+web/*.log
+web/README.md
+web/Dockerfile
+web/.dockerignore
+web/.gitignore
