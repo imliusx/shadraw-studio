@@ -1,0 +1,83 @@
+# ============================================================
+# OS / Editor
+# ============================================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.pem
+
+# ============================================================
+# Env files
+# ============================================================
+.env
+.env.*
+!.env.example
+!.env.prod.example
+
+# ============================================================
+# Backend (Go)
+# ============================================================
+backend/bin/
+backend/tmp/
+backend/data/
+backend/minio-data/
+backend/pgdata/
+backend/.gocache/
+backend/.cache/
+*.test
+*.out
+coverage.txt
+
+# Embedded Vite dist (filled at build time, not tracked)
+backend/internal/web/dist/*
+!backend/internal/web/dist/.gitkeep
+
+# ============================================================
+# Frontend (Vite / Next.js)
+# ============================================================
+frontend/node_modules/
+frontend/.pnp
+frontend/.pnp.*
+frontend/.yarn/*
+!frontend/.yarn/patches
+!frontend/.yarn/plugins
+!frontend/.yarn/releases
+!frontend/.yarn/versions
+
+# build artifacts
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+frontend/coverage/
+
+# next.js generated
+frontend/next-env.d.ts
+
+# typescript
+*.tsbuildinfo
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
+# ============================================================
+# Claude Code / Trellis / Agents (per-user, not for repo)
+# ============================================================
+.claude/
+.trellis/
+.agents/
+AGENTS.md
+skills-lock.json
+CLAUDE.md
+PROJECT.md
+
+# MCP local config (may contain credentials, not for repo)
+.mcp.json
