@@ -25,7 +25,9 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/opt/shadraw-studio/data
+# `-` prefix: tolerate missing directory (created on first run if BLOB_DRIVER=local;
+# unused when BLOB_DRIVER=s3 but still needed for any future writable path).
+ReadWritePaths=-/opt/shadraw-studio/data
 
 [Install]
 WantedBy=multi-user.target

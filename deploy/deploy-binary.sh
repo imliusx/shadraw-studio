@@ -22,7 +22,7 @@ if [[ ! -f bin/server-linux-amd64 ]]; then
 fi
 
 echo "▶︎ Ensuring ${REMOTE_PATH} exists on ${TARGET}..."
-ssh "${TARGET}" "mkdir -p ${REMOTE_PATH}"
+ssh "${TARGET}" "mkdir -p ${REMOTE_PATH}/data"
 
 echo "▶︎ Rsyncing files to ${TARGET}:${REMOTE_PATH}..."
 rsync -avz --progress \
