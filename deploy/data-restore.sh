@@ -52,11 +52,13 @@ echo "  env  = $(pwd)/${ENV_FILE}"
 
 # --- Locate dump files (search ., .., ~, ~/shadraw-studio) -------------------
 # Note: function returns 0 explicitly to avoid set -e tripping on last [[...]] test.
+# Note: ${d}/${pattern} is INTENTIONALLY unquoted so bash glob-expands the *.
 search_dump() {
   local pattern="$1"
   local d f
   for d in . .. "$HOME" "$HOME/shadraw-studio"; do
-    f=$(ls -1t "${d}/${pattern}" 2>/dev/null | head -1 || true)
+    # shellcheck disable=SC2086
+    f=$(ls -1t ${d}/${pattern} 2>/dev/null | head -1 || true)
     if [[ -n "${f}" ]]; then
       echo "${f}"
       return 0
