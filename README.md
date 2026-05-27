@@ -13,7 +13,8 @@ shadraw-studio/
 ├── deploy/          docker-compose / 生产部署脚本与文档
 ├── docs/            后端 API / DB / 模块文档 (见 [docs/backend.md](docs/backend.md) 和 [docs/deploy-migration.md](docs/deploy-migration.md))
 ├── go.mod           Go module 根 (module github.com/liusx/shadraw)
-├── Dockerfile       三阶段 build (web -> Go -> distroless)
+├── Dockerfile       三阶段 build (web -> Go -> distroless,内存够时用)
+├── Dockerfile.prebuilt  两阶段 build (跳过 vite,小内存 VPS 默认)
 └── docker-compose.yml  本地依赖 stack (Postgres + MinIO + api)
 ```
 
@@ -63,11 +64,13 @@ npm run dev
 
 ## 生产部署
 
-生产环境通过 docker-compose 拉起 `db` / `minio` / `api` 三个服务,`api` 容器内已包含前端产物,对外只暴露一个 HTTP 端口 (默认 `127.0.0.1:8088`),宿主 nginx 单 `upstream` 反代即可。详细步骤、环境变量与 nginx 模板见 [`deploy/README.md`](deploy/README.md)。
+生产环境通过 docker-compose 拉起 `db` / `minio` / `api` 三个服务,`api` 容器内已包含前端产物,对外只暴露一个 HTTP 端口 (默认 `127.0.0.1:8088`),宿主 nginx 单 `upstream` 反代即可。
+
+⚠️ **小内存 VPS (≤ 2GB) 注意**:默认走 prebuilt 模式 — 前端在本机 `vite build`,产物 rsync 到 VPS,VPS 上只 build Go。避免 vite build 在小内存机器上 OOM。详细步骤、环境变量与 nginx 模板见 [`deploy/README.md`](deploy/README.md)。
 
 ## 架构亮点
 
-- **单进程 / 单端口**: 前端 `vite build` 产物在 Docker 构建阶段拷入 `internal/web/dist/`,Go 通过 `//go:embed` 把整个 SPA 嵌入二进制。线上 `api` 容器既响应 `/api/v1/*` 业务接口,也响应根路径下的静态资源与 SPA 路由 fallback。
+- **单进程 / 单端口**: 前端 `vite build` 产物拷入 `internal/web/dist/`,Go 通过 `//go:embed` 把整个 SPA 嵌入二进制。线上 `api` 容器既响应 `/api/v1/*` 业务接口,也响应根路径下的静态资源与 SPA 路由 fallback。
 - **nginx 单 upstream**: 不再需要为前端独立配置 `location /` 与后端 `location /api/`,宿主反代一条 `proxy_pass http://127.0.0.1:8088;` 即可。
 - **无 CORS / 无环境基址**: 前端使用同源相对路径调用 API,删除了 `NEXT_PUBLIC_API_BASE` 与后端 CORS 中间件,运行时配置面更小。
-- **扁平 monorepo**: Go module 在仓库根,前端在 `web/`,Dockerfile 三阶段同时 build 两端,version 漂移问题消除。
+- **扁平 monorepo**: Go module 在仓库根,前端在 `web/`,两份 Dockerfile (full + prebuilt) 覆盖资源充裕和资源紧张两种 VPS。
