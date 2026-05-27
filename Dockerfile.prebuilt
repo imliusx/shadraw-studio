@@ -1,0 +1,58 @@
+# syntax=docker/dockerfile:1.6
+#
+# Pre-built frontend variant — used when building Vite on the deploy host
+# would OOM or be too slow (typical for 1-2GB VPS in mainland China).
+#
+# Expectation: internal/web/dist/ in the build context is already populated
+# with the production Vite output. Build it locally first:
+#   ./deploy/build-frontend.sh
+# then rsync or otherwise ship the directory before docker build runs.
+#
+# This Dockerfile is two stages instead of three (no frontend-builder):
+# Stage 1: build the Go binary, embedding the pre-built dist/
+# Stage 2: distroless runtime
+
+ARG RUNTIME_IMAGE=m.daocloud.io/gcr.io/distroless/static:nonroot
+
+# --- Stage 1: backend builder --------------------------------------------------
+FROM golang:1.26-alpine AS backend-builder
+WORKDIR /src
+
+RUN apk add --no-cache git ca-certificates
+
+# Use Chinese Go proxy by default; can be overridden with build arg.
+ARG GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY=${GOPROXY}
+
+# Cache go module downloads in a dedicated layer.
+COPY go.mod go.sum* ./
+RUN go mod download
+
+# Copy only the Go source trees and the pre-built frontend dist for embed.
+COPY cmd ./cmd
+COPY internal ./internal
+COPY migrations ./migrations
+
+# Safety check: dist must contain index.html, otherwise the SPA fallback
+# will serve nothing. Build context owner is responsible for populating
+# internal/web/dist/ before invoking this Dockerfile.
+RUN test -f ./internal/web/dist/index.html || ( \
+      echo "❌ internal/web/dist/index.html missing." ; \
+      echo "   Run ./deploy/build-frontend.sh locally first," ; \
+      echo "   then rsync internal/web/dist/ to this host." ; \
+      exit 1 )
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -trimpath \
+    -o /out/server ./cmd/server
+
+# --- Stage 2: runtime ----------------------------------------------------------
+FROM ${RUNTIME_IMAGE}
+WORKDIR /app
+COPY --from=backend-builder /out/server /app/server
+COPY migrations /app/migrations
+
+EXPOSE 8088
+USER nonroot:nonroot
+ENTRYPOINT ["/app/server"]

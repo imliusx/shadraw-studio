@@ -64,7 +64,11 @@ services:
   api:
     build:
       context: ..
-      dockerfile: Dockerfile
+      # Uses prebuilt variant: skips Vite build, expects internal/web/dist/
+      # to be populated on the host (see ../deploy/build-frontend.sh and
+      # ../deploy/sync-dist.sh). Heavy frontend build happens locally,
+      # only Go compilation runs on the deploy host.
+      dockerfile: Dockerfile.prebuilt
     depends_on:
       db:
         condition: service_healthy

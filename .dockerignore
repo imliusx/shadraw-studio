@@ -48,9 +48,10 @@ bin/
 *.test
 *.out
 
-# Embedded dist is written by the frontend-builder stage; never ship the
-# (potentially stale) host copy into the build context.
-internal/web/dist/
+# NOTE: internal/web/dist/ is intentionally NOT excluded. It is the embed
+# target for the Go binary. Depending on the Dockerfile variant used:
+# - Dockerfile (full build): frontend-builder stage will overwrite it
+# - Dockerfile.prebuilt: expects the host-built dist to be shipped here
 
 # ---- Frontend local artifacts (web/) ----
 web/node_modules
