@@ -2,7 +2,7 @@
 
 把本地开发环境产生的 Postgres 数据 + MinIO 对象存储迁到 VPS 部署。**首次上线** 或 **本地 → 线上回灌** 时按这套流程走。
 
-> ⚠️ 本文档假设你已经在 VPS 上完成 [`deploy/README.md`](../deploy/README.md) 描述的初始部署 (git clone monorepo、配 `.env`、`./deploy.sh up` 成功跑通空数据)。本文档接着把本地数据灌进去。
+> ⚠️ 本文档假设你已经在 VPS 上完成 [`deploy/README.md`](../deploy/README.md) 描述的 binary + systemd 初始部署 (`deploy-binary.sh` 上传、配 `.env`、依赖容器和 `shadraw-api` systemd 服务跑通空数据)。本文档接着把本地数据灌进去。
 
 ---
 
@@ -13,12 +13,20 @@
 ./deploy/data-export.sh --scp user@vps
 
 # 2. SSH 上 VPS 跑还原
-ssh user@vps 'cd ~/shadraw-studio/deploy && ./data-restore.sh'
+ssh user@vps 'cd /opt/shadraw-studio && ./data-restore.sh'
 ```
 
 `data-restore.sh` 会弹一次确认提示 (因为是覆盖操作),输入 `yes` 继续。完了自动 tail api 日志,Ctrl+C 退出。
 
 后面的章节是上面两条命令背后的全过程拆解,需要排错 / 自定义路径 / 理解发生了什么时翻下面。
+
+---
+
+> 🔥 **最容易踩的坑:`MASTER_KEY` 必须和导出端一致**。
+> dump 里 `upstream_configs` 表的 apiKey 是用 master key 做 AES-GCM 加密的。
+> 不一致时 API 启动 41ms 就崩,日志写 `cipher: message authentication failed`。
+> 详见下方[关键对齐项](#关键对齐项-)章节。导入前**先拷贝本地 .env 的 MASTER_KEY 到目标 .env**,
+> 再跑 restore,可避免 99% 的迁移失败。
 
 ---
 
@@ -81,26 +89,28 @@ SSH 上 VPS:
 
 ```bash
 ssh user@vps
-cd ~/shadraw-studio/deploy
+cd /opt/shadraw-studio
 
-COMPOSE="docker compose -f docker-compose.prod.yml --env-file .env"
+COMPOSE="docker compose -f docker-compose.deps.yml --env-file .env"
 
-# 步骤 3.1: 只起依赖,不起 api (避免空 db 被 migrations 跑过又被 dump 还原时冲突)
+# 步骤 3.1: 停 API,避免 restore 时应用同时读写数据库
+sudo systemctl stop shadraw-api || true
+
+# 步骤 3.2: 只起依赖
 $COMPOSE up -d db minio
 
-# 步骤 3.2: 等 db ready
+# 步骤 3.3: 等 db ready
 until $COMPOSE exec -T db pg_isready -U shadraw -d shadraw; do sleep 1; done
 
-# 步骤 3.3: Postgres 还原
+# 步骤 3.4: Postgres 还原
 # --clean --if-exists: 先 drop 同名对象再 restore (相当于覆盖)
 cat ~/shadraw-studio/shadraw-pg-*.dump | \
   $COMPOSE exec -T db pg_restore -U shadraw -d shadraw --clean --if-exists
 
-# 步骤 3.4: MinIO 还原 (停 minio → 解 tar 进 named volume → 起 minio)
+# 步骤 3.5: MinIO 还原 (停 minio → 解 tar 进 named volume → 起 minio)
 $COMPOSE stop minio
 
-# named volume 名: <compose project>_<volume name>
-# 默认 project name 是 deploy 目录的父目录名 (这里是 shadraw-studio),所以是 shadraw-studio_miniodata
+# named volume 名: shadraw_miniodata (或类似 compose project 前缀)
 # 用 docker volume ls 确认实际名字
 VOLUME=$(docker volume ls --format "{{.Name}}" | grep miniodata | head -1)
 echo "MinIO volume: $VOLUME"
@@ -112,11 +122,11 @@ docker run --rm \
 
 $COMPOSE start minio
 
-# 步骤 3.5: 起完整 stack (api 此时会做 migrations,因为表已经在数据库里,会显示 no-change)
-$COMPOSE up -d
+# 步骤 3.6: 启动 API (会做 migrations,因为表已经在数据库里,会显示 no-change)
+sudo systemctl start shadraw-api
 
-# 步骤 3.6: 看 api 启动日志确认无报错
-$COMPOSE logs -f api
+# 步骤 3.7: 看 API 启动日志确认无报错
+sudo journalctl -u shadraw-api -f
 ```
 
 健康的 api 日志大致长这样:

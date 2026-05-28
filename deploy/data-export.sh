@@ -63,10 +63,10 @@ if [[ -n "${SCP_TARGET}" ]]; then
   echo "▶︎ SCP to ${SCP_TARGET}:~/shadraw-studio/"
   scp "${DUMP_FILE}" "${MINIO_FILE}" "${SCP_TARGET}:~/shadraw-studio/"
   echo ""
-  echo "✓ Files copied. Next: ssh ${SCP_TARGET} 'cd ~/shadraw-studio/deploy && ./data-restore.sh'"
+  echo "✓ Files copied. Next: ssh ${SCP_TARGET} 'cd /opt/shadraw-studio && ./data-restore.sh'"
 else
   echo ""
   echo "Next step:"
   echo "  scp ${DUMP_FILE} ${MINIO_FILE} user@vps:~/shadraw-studio/"
-  echo "  ssh user@vps 'cd ~/shadraw-studio/deploy && ./data-restore.sh'"
+  echo "  ssh user@vps 'cd /opt/shadraw-studio && ./data-restore.sh'"
 fi

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Restore Postgres + MinIO data from a local dump pair into the running stack.
 #
-# Auto-detects deployment mode:
-#   - Binary mode  : docker-compose.deps.yml present → api is systemd, deps in docker
-#   - Docker mode  : docker-compose.prod.yml present → everything in docker
+# Binary + systemd deployment only:
+#   - docker-compose.deps.yml runs Postgres + MinIO
+#   - shadraw-api systemd service runs the API binary
 #
 # Destructive: replaces existing Postgres + MinIO contents.
 #
@@ -32,19 +32,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# --- Detect mode + compose file ----------------------------------------------
-MODE=""
-COMPOSE_FILE=""
-if   [[ -f "docker-compose.deps.yml" ]]; then
-  MODE="binary"; COMPOSE_FILE="docker-compose.deps.yml"
-elif [[ -f "docker-compose.prod.yml" ]]; then
-  MODE="docker"; COMPOSE_FILE="docker-compose.prod.yml"
-else
-  echo "❌ Neither docker-compose.deps.yml nor docker-compose.prod.yml in $(pwd)" >&2
-  echo "   Run this script from /opt/shadraw-studio (binary mode) or deploy/ (docker mode)" >&2
+# --- Detect compose file ------------------------------------------------------
+COMPOSE_FILE="docker-compose.deps.yml"
+if [[ ! -f "${COMPOSE_FILE}" ]]; then
+  echo "❌ ${COMPOSE_FILE} not found in $(pwd)" >&2
+  echo "   Run this script from /opt/shadraw-studio after deploy-binary.sh uploads files." >&2
   exit 1
 fi
-echo "  mode = ${MODE}, compose = ${COMPOSE_FILE}"
+echo "  mode = binary, compose = ${COMPOSE_FILE}"
 
 ENV_FILE=".env"
 [[ -f "${ENV_FILE}" ]] || { echo "❌ ${ENV_FILE} not found in $(pwd)." >&2; exit 1; }
@@ -87,17 +82,15 @@ set -u
 
 COMPOSE="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
 
-# --- Detect systemd service (binary mode only) -------------------------------
+# --- Detect systemd service ---------------------------------------------------
 HAS_SYSTEMD=0
-if [[ "${MODE}" == "binary" ]]; then
-  if systemctl list-unit-files shadraw-api.service >/dev/null 2>&1; then
-    HAS_SYSTEMD=1
-  fi
+if systemctl list-unit-files shadraw-api.service >/dev/null 2>&1; then
+  HAS_SYSTEMD=1
 fi
 
 # --- Plan summary ------------------------------------------------------------
 echo "▶︎ Plan:"
-echo "    mode         : ${MODE}"
+echo "    mode         : binary + systemd"
 echo "    compose file : ${COMPOSE_FILE}"
 echo "    pg dump      : ${PG_DUMP} ($(du -h "${PG_DUMP}" | cut -f1))"
 echo "    minio tar    : ${MINIO_TGZ} ($(du -h "${MINIO_TGZ}" | cut -f1))"
@@ -112,7 +105,7 @@ if [[ ${ASSUME_YES} -ne 1 ]]; then
   [[ "${ans}" == "yes" ]] || { echo "Aborted."; exit 1; }
 fi
 
-# --- Stop API (binary mode) --------------------------------------------------
+# --- Stop API ---------------------------------------------------------------
 if [[ ${HAS_SYSTEMD} -eq 1 ]] && systemctl is-active --quiet shadraw-api; then
   echo "▶︎ Stopping shadraw-api systemd service..."
   sudo systemctl stop shadraw-api
@@ -150,24 +143,15 @@ echo "▶︎ Starting MinIO..."
 ${COMPOSE} start minio
 
 # --- Start API back up -------------------------------------------------------
-if [[ "${MODE}" == "binary" ]]; then
-  if [[ ${HAS_SYSTEMD} -eq 1 ]]; then
-    echo "▶︎ Starting shadraw-api systemd service..."
-    sudo systemctl start shadraw-api
-    sleep 2
-    sudo systemctl status shadraw-api --no-pager -n 10
-    echo ""
-    echo "✓ Restore complete. Recent journal:"
-    sudo journalctl -u shadraw-api -n 20 --no-pager
-  else
-    echo "⚠️  systemd unit not installed; api won't auto-start."
-    echo "   See deploy/deploy-binary.sh output for setup steps."
-  fi
-else
-  # Docker mode: bring api container back too
-  echo "▶︎ Starting api container..."
-  ${COMPOSE} up -d
+if [[ ${HAS_SYSTEMD} -eq 1 ]]; then
+  echo "▶︎ Starting shadraw-api systemd service..."
+  sudo systemctl start shadraw-api
+  sleep 2
+  sudo systemctl status shadraw-api --no-pager -n 10
   echo ""
-  echo "✓ Restore complete. api log (Ctrl+C to detach):"
-  ${COMPOSE} logs --tail=30 -f api
+  echo "✓ Restore complete. Recent journal:"
+  sudo journalctl -u shadraw-api -n 20 --no-pager
+else
+  echo "⚠️  systemd unit not installed; api won't auto-start."
+  echo "   See deploy/deploy-binary.sh output for setup steps."
 fi
