@@ -17,13 +17,19 @@ import (
 	"github.com/liusx/shadraw/internal/user"
 )
 
+type runtimeStore interface {
+	RuntimeSettings() RuntimeSettingsDTO
+	UpdateRuntimeSettings(ctx context.Context, settings RuntimeSettingsDTO, actorID int64) error
+}
+
 // Handler bundles admin endpoints.
 type Handler struct {
-	store      *Store
-	users      *user.Repository
-	records    *record.Repository
-	upstreamCl *upstream.Client
-	auth       AuthService
+	store        *Store
+	runtimeStore runtimeStore
+	users        *user.Repository
+	records      *record.Repository
+	upstreamCl   *upstream.Client
+	auth         AuthService
 }
 
 // AuthService is the subset of *auth.Service the admin handler uses.
@@ -32,7 +38,7 @@ type AuthService interface {
 }
 
 func NewHandler(store *Store, users *user.Repository, records *record.Repository, upstreamCl *upstream.Client, authSvc AuthService) *Handler {
-	return &Handler{store: store, users: users, records: records, upstreamCl: upstreamCl, auth: authSvc}
+	return &Handler{store: store, runtimeStore: store, users: users, records: records, upstreamCl: upstreamCl, auth: authSvc}
 }
 
 // ---- upstream config ----
@@ -145,7 +151,7 @@ func (h *Handler) TestUpstream(c *gin.Context) {
 // ---- runtime ----
 
 func (h *Handler) GetRuntime(c *gin.Context) {
-	httpx.OK(c, gin.H{"workerConcurrency": h.store.WorkerConcurrency()})
+	httpx.OK(c, h.runtimeStore.RuntimeSettings())
 }
 
 func (h *Handler) UpdateRuntime(c *gin.Context) {
@@ -154,11 +160,16 @@ func (h *Handler) UpdateRuntime(c *gin.Context) {
 		return
 	}
 	actorID, _ := strconv.ParseInt(httpx.UserIDFrom(c), 10, 64)
-	if err := h.store.UpdateWorkerConcurrency(c.Request.Context(), req.WorkerConcurrency, actorID); err != nil {
+	settings := RuntimeSettingsDTO{
+		WorkerConcurrency:        req.WorkerConcurrency,
+		PerUserWorkerConcurrency: req.PerUserWorkerConcurrency,
+		PerUserQueueLimit:        req.PerUserQueueLimit,
+	}
+	if err := h.runtimeStore.UpdateRuntimeSettings(c.Request.Context(), settings, actorID); err != nil {
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}
-	httpx.OK(c, gin.H{"workerConcurrency": h.store.WorkerConcurrency()})
+	httpx.OK(c, h.runtimeStore.RuntimeSettings())
 }
 
 // ---- site settings ----

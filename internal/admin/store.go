@@ -17,15 +17,17 @@ import (
 
 // UpstreamConfig models the single-row upstream_configs table.
 type UpstreamConfig struct {
-	ID                int16     `gorm:"column:id;primaryKey"`
-	BaseURL           string    `gorm:"column:base_url"`
-	APIKeyCipher      []byte    `gorm:"column:api_key_cipher"`
-	EnabledModels     JSONArray `gorm:"column:enabled_models;type:jsonb"`
-	WorkerConcurrency int16     `gorm:"column:worker_concurrency"`
-	SiteTitle         string    `gorm:"column:site_title"`
-	UpdatedBy         *int64    `gorm:"column:updated_by"`
-	CreatedAt         time.Time `gorm:"column:created_at"`
-	UpdatedAt         time.Time `gorm:"column:updated_at"`
+	ID                       int16     `gorm:"column:id;primaryKey"`
+	BaseURL                  string    `gorm:"column:base_url"`
+	APIKeyCipher             []byte    `gorm:"column:api_key_cipher"`
+	EnabledModels            JSONArray `gorm:"column:enabled_models;type:jsonb"`
+	WorkerConcurrency        int16     `gorm:"column:worker_concurrency"`
+	PerUserWorkerConcurrency int16     `gorm:"column:per_user_worker_concurrency"`
+	PerUserQueueLimit        int16     `gorm:"column:per_user_queue_limit"`
+	SiteTitle                string    `gorm:"column:site_title"`
+	UpdatedBy                *int64    `gorm:"column:updated_by"`
+	CreatedAt                time.Time `gorm:"column:created_at"`
+	UpdatedAt                time.Time `gorm:"column:updated_at"`
 }
 
 func (UpstreamConfig) TableName() string { return "upstream_configs" }
@@ -58,16 +60,25 @@ func (s *Store) SetResizer(fn func(int)) {
 func (s *Store) Load(ctx context.Context) error {
 	var row UpstreamConfig
 	err := s.db.WithContext(ctx).
-		Select("id", "base_url", "api_key_cipher", "enabled_models", "worker_concurrency", "site_title", "updated_by", "created_at", "updated_at").
+		Select("id", "base_url", "api_key_cipher", "enabled_models", "worker_concurrency", "per_user_worker_concurrency", "per_user_queue_limit", "site_title", "updated_by", "created_at", "updated_at").
 		Where("id = 1").Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Seed empty row so admin can fill it in.
-		row = UpstreamConfig{ID: 1, EnabledModels: JSONArray{}, WorkerConcurrency: 4, SiteTitle: "shadraw"}
+		row = UpstreamConfig{ID: 1, EnabledModels: JSONArray{}, WorkerConcurrency: 4, PerUserWorkerConcurrency: 1, PerUserQueueLimit: 5, SiteTitle: "shadraw"}
 		if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
+	}
+	if row.WorkerConcurrency == 0 {
+		row.WorkerConcurrency = 4
+	}
+	if row.PerUserWorkerConcurrency == 0 {
+		row.PerUserWorkerConcurrency = 1
+	}
+	if row.PerUserQueueLimit == 0 {
+		row.PerUserQueueLimit = 5
 	}
 	if strings.TrimSpace(row.SiteTitle) == "" {
 		row.SiteTitle = "shadraw"
@@ -118,11 +129,30 @@ func (s *Store) AppConfig() AppConfigDTO {
 	}
 }
 
-// WorkerConcurrency returns the live concurrency value.
-func (s *Store) WorkerConcurrency() int {
+// RuntimeSettings returns the live generation runtime settings.
+func (s *Store) RuntimeSettings() RuntimeSettingsDTO {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return int(s.cached.WorkerConcurrency)
+	return RuntimeSettingsDTO{
+		WorkerConcurrency:        int(s.cached.WorkerConcurrency),
+		PerUserWorkerConcurrency: int(s.cached.PerUserWorkerConcurrency),
+		PerUserQueueLimit:        int(s.cached.PerUserQueueLimit),
+	}
+}
+
+// WorkerConcurrency returns the live global concurrency value.
+func (s *Store) WorkerConcurrency() int {
+	return s.RuntimeSettings().WorkerConcurrency
+}
+
+// PerUserWorkerConcurrency returns the live per-user running generation limit.
+func (s *Store) PerUserWorkerConcurrency() int {
+	return s.RuntimeSettings().PerUserWorkerConcurrency
+}
+
+// PerUserQueueLimit returns the live per-user unfinished record limit.
+func (s *Store) PerUserQueueLimit() int {
+	return s.RuntimeSettings().PerUserQueueLimit
 }
 
 // UpdateUpstreamArgs carries the editable fields.
@@ -174,28 +204,30 @@ func (s *Store) UpdateUpstream(ctx context.Context, a UpdateUpstreamArgs) error 
 	return nil
 }
 
-// UpdateWorkerConcurrency persists + hot-applies the new value.
-func (s *Store) UpdateWorkerConcurrency(ctx context.Context, n int, actorID int64) error {
-	if n < 1 {
-		n = 1
-	}
-	if n > 16 {
-		n = 16
-	}
+// UpdateRuntimeSettings persists + hot-applies runtime settings.
+func (s *Store) UpdateRuntimeSettings(ctx context.Context, settings RuntimeSettingsDTO, actorID int64) error {
+	settings.WorkerConcurrency = clampRuntimeLimit(settings.WorkerConcurrency, 4)
+	settings.PerUserWorkerConcurrency = clampRuntimeLimit(settings.PerUserWorkerConcurrency, 1)
+	settings.PerUserQueueLimit = clampRuntimeLimit(settings.PerUserQueueLimit, 5)
 	if err := s.db.WithContext(ctx).Model(&UpstreamConfig{}).
 		Where("id = 1").
 		Updates(map[string]any{
-			"worker_concurrency": n,
-			"updated_by":         actorID,
+			"worker_concurrency":          settings.WorkerConcurrency,
+			"per_user_worker_concurrency": settings.PerUserWorkerConcurrency,
+			"per_user_queue_limit":        settings.PerUserQueueLimit,
+			"updated_by":                  actorID,
 		}).Error; err != nil {
 		return err
 	}
 	s.mu.Lock()
-	s.cached.WorkerConcurrency = int16(n)
+	s.cached.WorkerConcurrency = int16(settings.WorkerConcurrency)
+	s.cached.PerUserWorkerConcurrency = int16(settings.PerUserWorkerConcurrency)
+	s.cached.PerUserQueueLimit = int16(settings.PerUserQueueLimit)
+	s.cached.UpdatedBy = &actorID
 	fn := s.resizer
 	s.mu.Unlock()
 	if fn != nil {
-		fn(n)
+		fn(settings.WorkerConcurrency)
 	}
 	return nil
 }
@@ -235,9 +267,11 @@ func (s *Store) View() UpstreamConfigDTO {
 	models := make([]string, 0, len(s.cached.EnabledModels))
 	models = append(models, s.cached.EnabledModels...)
 	dto := UpstreamConfigDTO{
-		BaseURL:           s.cached.BaseURL,
-		EnabledModels:     models,
-		WorkerConcurrency: int(s.cached.WorkerConcurrency),
+		BaseURL:                  s.cached.BaseURL,
+		EnabledModels:            models,
+		WorkerConcurrency:        int(s.cached.WorkerConcurrency),
+		PerUserWorkerConcurrency: int(s.cached.PerUserWorkerConcurrency),
+		PerUserQueueLimit:        int(s.cached.PerUserQueueLimit),
 	}
 	if s.apiKey != "" {
 		dto.APIKeyMasked = crypto.MaskAPIKey(s.apiKey)
@@ -252,4 +286,17 @@ func siteTitleOrDefault(title string) string {
 		return "shadraw"
 	}
 	return title
+}
+
+func clampRuntimeLimit(n, fallback int) int {
+	if n == 0 {
+		n = fallback
+	}
+	if n < 1 {
+		return 1
+	}
+	if n > 16 {
+		return 16
+	}
+	return n
 }

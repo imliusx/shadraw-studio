@@ -2,12 +2,17 @@ import { apiClient, type ApiResponse } from "./client"
 import type { RecordDTO } from "./records-client"
 import type { AuthUser } from "./auth-client"
 
-export type UpstreamConfigDTO = {
+export type RuntimeSettingsDTO = {
+  workerConcurrency: number
+  perUserWorkerConcurrency: number
+  perUserQueueLimit: number
+}
+
+export type UpstreamConfigDTO = RuntimeSettingsDTO & {
   baseUrl: string
   apiKeyMasked?: string
   apiKeySet: boolean
   enabledModels: string[]
-  workerConcurrency: number
 }
 
 export type SiteConfigDTO = {
@@ -55,16 +60,16 @@ export const adminApi = {
     return data
   },
 
-  async getRuntime(): Promise<{ workerConcurrency: number }> {
-    const { data } = await apiClient.get<{ workerConcurrency: number }>(
+  async getRuntime(): Promise<RuntimeSettingsDTO> {
+    const { data } = await apiClient.get<RuntimeSettingsDTO>(
       "/api/v1/admin/runtime"
     )
     return data
   },
-  async updateRuntime(workerConcurrency: number): Promise<{ workerConcurrency: number }> {
-    const { data } = await apiClient.patch<{ workerConcurrency: number }>(
+  async updateRuntime(settings: RuntimeSettingsDTO): Promise<RuntimeSettingsDTO> {
+    const { data } = await apiClient.patch<RuntimeSettingsDTO>(
       "/api/v1/admin/runtime",
-      { workerConcurrency }
+      settings
     )
     return data
   },

@@ -39,11 +39,20 @@ func (a *JSONArray) Scan(src any) error {
 
 // UpstreamConfigDTO is the public shape (with masked apiKey).
 type UpstreamConfigDTO struct {
-	BaseURL           string   `json:"baseUrl"`
-	APIKeyMasked      string   `json:"apiKeyMasked,omitempty"`
-	APIKeySet         bool     `json:"apiKeySet"`
-	EnabledModels     []string `json:"enabledModels"`
-	WorkerConcurrency int      `json:"workerConcurrency"`
+	BaseURL                  string   `json:"baseUrl"`
+	APIKeyMasked             string   `json:"apiKeyMasked,omitempty"`
+	APIKeySet                bool     `json:"apiKeySet"`
+	EnabledModels            []string `json:"enabledModels"`
+	WorkerConcurrency        int      `json:"workerConcurrency"`
+	PerUserWorkerConcurrency int      `json:"perUserWorkerConcurrency"`
+	PerUserQueueLimit        int      `json:"perUserQueueLimit"`
+}
+
+// RuntimeSettingsDTO is the admin runtime settings shape.
+type RuntimeSettingsDTO struct {
+	WorkerConcurrency        int `json:"workerConcurrency"`
+	PerUserWorkerConcurrency int `json:"perUserWorkerConcurrency"`
+	PerUserQueueLimit        int `json:"perUserQueueLimit"`
 }
 
 // AppConfigDTO is the public app config used by the front-end before and after login.
@@ -71,7 +80,9 @@ type UpdateSiteReq struct {
 
 // UpdateRuntimeReq is the body of PATCH /api/v1/admin/runtime.
 type UpdateRuntimeReq struct {
-	WorkerConcurrency int `json:"workerConcurrency" binding:"required,min=1,max=16"`
+	WorkerConcurrency        int `json:"workerConcurrency" binding:"required,min=1,max=16"`
+	PerUserWorkerConcurrency int `json:"perUserWorkerConcurrency" binding:"required,min=1,max=16"`
+	PerUserQueueLimit        int `json:"perUserQueueLimit" binding:"required,min=1,max=16"`
 }
 
 // UpdateUserReq is the body of PATCH /api/v1/admin/users/:id.

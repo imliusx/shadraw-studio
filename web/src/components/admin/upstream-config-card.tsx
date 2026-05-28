@@ -2,7 +2,7 @@ import * as React from "react"
 import { toast } from "sonner"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
 
-import { adminApi, type UpstreamConfigDTO } from "@/lib/api/admin-client"
+import { adminApi, type RuntimeSettingsDTO } from "@/lib/api/admin-client"
 import { ApiError } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -20,8 +20,15 @@ import { Slider } from "@/components/ui/slider"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
+type RuntimeSliderProps = {
+  label: string
+  description: string
+  value: number
+  onValueChange: (value: number) => void
+  onValueCommit: (value: number) => void
+}
+
 export function UpstreamConfigCard() {
-  const [config, setConfig] = React.useState<UpstreamConfigDTO | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [testing, setTesting] = React.useState(false)
@@ -32,7 +39,11 @@ export function UpstreamConfigCard() {
   // user leaves the field untouched we treat it as "no change" on save.
   const initialApiKeyRef = React.useRef("")
   const [models, setModels] = React.useState("")
-  const [concurrency, setConcurrency] = React.useState(4)
+  const [runtime, setRuntime] = React.useState<RuntimeSettingsDTO>({
+    workerConcurrency: 4,
+    perUserWorkerConcurrency: 1,
+    perUserQueueLimit: 5,
+  })
   const [testModel, setTestModel] = React.useState<string>("")
   const [testModelOpen, setTestModelOpen] = React.useState(false)
 
@@ -52,10 +63,9 @@ export function UpstreamConfigCard() {
         adminApi.getUpstream(),
         adminApi.getRuntime(),
       ])
-      setConfig(cfg)
       setBaseUrl(cfg.baseUrl ?? "")
       setModels((cfg.enabledModels ?? []).join(", "))
-      setConcurrency(rt.workerConcurrency)
+      setRuntime(rt)
       const initial = cfg.apiKeyMasked ?? ""
       setApiKey(initial)
       initialApiKeyRef.current = initial
@@ -89,8 +99,7 @@ export function UpstreamConfigCard() {
       if (apiKey !== initialApiKeyRef.current) {
         payload.apiKey = apiKey === "" ? null : apiKey
       }
-      const next = await adminApi.updateUpstream(payload)
-      setConfig(next)
+      await adminApi.updateUpstream(payload)
       // Keep the visible input value untouched (so the user still sees the key
       // they just typed). Page-refresh will fall back to the masked value from
       // the backend.
@@ -126,15 +135,20 @@ export function UpstreamConfigCard() {
     }
   }, [testModel])
 
-  const handleConcurrency = React.useCallback(async (value: number) => {
-    setConcurrency(value)
-    try {
-      await adminApi.updateRuntime(value)
-      toast.success(`Worker 并发度已更新为 ${value}`)
-    } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "更新失败")
-    }
-  }, [])
+  const handleRuntimeCommit = React.useCallback(
+    async (key: keyof RuntimeSettingsDTO, value: number) => {
+      const next = { ...runtime, [key]: value }
+      setRuntime(next)
+      try {
+        const saved = await adminApi.updateRuntime(next)
+        setRuntime(saved)
+        toast.success("运行时配置已更新")
+      } catch (err) {
+        toast.error(err instanceof ApiError ? err.message : "更新失败")
+      }
+    },
+    [runtime]
+  )
 
   if (loading) {
     return (
@@ -247,30 +261,78 @@ export function UpstreamConfigCard() {
 
       <Card className="gap-4 p-6">
         <div>
-          <h3 className="text-base font-semibold">Worker 并发度</h3>
+          <h3 className="text-base font-semibold">生成运行时限制</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            同时调用上游的最大并发数。修改后立即生效，无需重启。
+            拆分全局资源保护、单用户公平调度和单用户排队上限。修改后立即生效，无需重启。
           </p>
         </div>
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between text-sm">
-            <span>当前并发：</span>
-            <span className="font-mono">{concurrency}</span>
-          </div>
-          <Slider
-            min={1}
-            max={16}
-            step={1}
-            value={[concurrency]}
-            onValueChange={(v) => setConcurrency(v[0] ?? 1)}
-            onValueCommit={(v) => void handleConcurrency(v[0] ?? 1)}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>1</span>
-            <span>16</span>
-          </div>
-        </div>
+        <RuntimeSlider
+          label="全局并发上限"
+          description="整个站点同时调用上游的最大生图数。"
+          value={runtime.workerConcurrency}
+          onValueChange={(value) =>
+            setRuntime((cur) => ({ ...cur, workerConcurrency: value }))
+          }
+          onValueCommit={(value) =>
+            void handleRuntimeCommit("workerConcurrency", value)
+          }
+        />
+        <RuntimeSlider
+          label="单用户并发上限"
+          description="单个用户最多同时运行的生图任务数。"
+          value={runtime.perUserWorkerConcurrency}
+          onValueChange={(value) =>
+            setRuntime((cur) => ({ ...cur, perUserWorkerConcurrency: value }))
+          }
+          onValueCommit={(value) =>
+            void handleRuntimeCommit("perUserWorkerConcurrency", value)
+          }
+        />
+        <RuntimeSlider
+          label="单用户未完成任务上限"
+          description="单个用户 waiting + running 的最大任务数。"
+          value={runtime.perUserQueueLimit}
+          onValueChange={(value) =>
+            setRuntime((cur) => ({ ...cur, perUserQueueLimit: value }))
+          }
+          onValueCommit={(value) =>
+            void handleRuntimeCommit("perUserQueueLimit", value)
+          }
+        />
       </Card>
+    </div>
+  )
+}
+
+function RuntimeSlider({
+  label,
+  description,
+  value,
+  onValueChange,
+  onValueCommit,
+}: RuntimeSliderProps) {
+  return (
+    <div className="grid gap-2 rounded-md border p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Label>{label}</Label>
+          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        </div>
+        <span className="font-mono text-sm">{value}</span>
+      </div>
+      <Slider
+        aria-label={label}
+        min={1}
+        max={16}
+        step={1}
+        value={[value]}
+        onValueChange={(v) => onValueChange(v[0] ?? 1)}
+        onValueCommit={(v) => onValueCommit(v[0] ?? 1)}
+      />
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>1</span>
+        <span>16</span>
+      </div>
     </div>
   )
 }

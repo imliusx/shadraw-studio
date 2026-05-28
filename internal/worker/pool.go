@@ -21,6 +21,7 @@ import (
 // safe for concurrent reads.
 type UpstreamConfigSource interface {
 	Snapshot() upstream.Config
+	PerUserWorkerConcurrency() int
 }
 
 // Pool drains the records.waiting queue.
@@ -156,7 +157,7 @@ func (p *Pool) run() {
 // tickOnce claims at most one waiting record and processes it.
 // Returns (true, nil) when work happened; (false, nil) when idle.
 func (p *Pool) tickOnce(ctx context.Context) (bool, error) {
-	rec, err := p.records.ClaimWaiting(ctx)
+	rec, err := p.records.ClaimWaiting(ctx, p.source.PerUserWorkerConcurrency())
 	if err != nil {
 		if errors.Is(err, record.ErrNotFound) {
 			return false, nil

@@ -1033,8 +1033,15 @@ export function useGenerate(): UseGenerateReturn {
       const target = recordsRef.current.find((r) => r.id === id)
       if (!target) return
       appendEvent("info", `重试记录 #${id}`)
-      await retryRecord(id)
-      setActive(id)
+      try {
+        await retryRecord(id)
+        setActive(id)
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? apiErrorMessage(err) : "重试失败，请稍后再试"
+        appendEvent("error", message)
+        throw new Error(message)
+      }
     },
     [setActive, appendEvent, retryRecord]
   )

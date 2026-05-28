@@ -266,6 +266,20 @@
 
 失败记录会返回面向用户的 `error`。如果上游返回了可解析错误，当前用户自己的记录还会返回 `upstreamError` 作为调试详情；社区公开列表不会暴露该字段。
 
+- 429（单用户未完成任务达到后台配置上限；未创建记录）：
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "rate_limited",
+    "message": "当前未完成生图任务已达上限，请等待任务完成后再提交"
+  }
+}
+```
+
+响应包含 `Retry-After: 30`。
+
 ## GET /records
 
 - 鉴权：Bearer
@@ -293,12 +307,73 @@
 
 - 鉴权：Bearer
 - 仅失败记录可重试。
+- 200 响应：`{ "data": { "record": RecordDTO }, "error": null }`，记录状态重置为 `waiting`。
+- 409：非失败记录不可重试。
+- 429（单用户未完成任务达到后台配置上限；失败记录保持 `failed`）：
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "rate_limited",
+    "message": "当前未完成生图任务已达上限，请等待任务完成后再提交"
+  }
+}
+```
+
+响应包含 `Retry-After: 30`。
 
 ## GET /images/:id
 
 - 鉴权：Bearer
 - 返回该 record 的图片二进制。
 - 当前用户可读取自己的图片；其他用户只能读取已公开的图片。
+
+---
+
+## GET /admin/runtime
+
+读取生成运行时限制。
+
+- 鉴权：Bearer + admin
+- 200 响应：
+
+```json
+{
+  "data": {
+    "workerConcurrency": 4,
+    "perUserWorkerConcurrency": 1,
+    "perUserQueueLimit": 5
+  },
+  "error": null
+}
+```
+
+字段含义：
+
+| 字段 | 范围 | 含义 |
+|---|---:|---|
+| `workerConcurrency` | 1–16 | 全站同时调用上游的最大并发数 |
+| `perUserWorkerConcurrency` | 1–16 | 单个用户最多同时运行的生图任务数 |
+| `perUserQueueLimit` | 1–16 | 单个用户未完成任务数上限，计 `waiting + running` |
+
+## PATCH /admin/runtime
+
+更新生成运行时限制，修改后立即生效。
+
+- 鉴权：Bearer + admin
+- 请求体：
+
+```json
+{
+  "workerConcurrency": 4,
+  "perUserWorkerConcurrency": 1,
+  "perUserQueueLimit": 5
+}
+```
+
+- 200 响应：同 `GET /admin/runtime`。
+- 422：任一字段缺失或不在 1–16 范围内。
 
 ---
 

@@ -2,6 +2,7 @@ package record
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -17,12 +18,34 @@ import (
 // validate record requests. The admin module owns the source of truth.
 type UpstreamConfigReader interface {
 	EnabledModels() []string
+	PerUserQueueLimit() int
+}
+
+type recordStore interface {
+	CreateIfBelowUnfinishedLimit(ctx context.Context, rec *Record, limit int) error
+	FindByID(ctx context.Context, id, userID int64) (*Record, error)
+	FindVisibleImageByID(ctx context.Context, id, userID int64) (*Record, error)
+	List(ctx context.Context, p ListParams) ([]Record, int64, error)
+	ListPublic(ctx context.Context, userID int64, p PublicListParams) ([]Record, int64, error)
+	UpdateFavorite(ctx context.Context, id, userID int64, favorite bool) error
+	UpdatePublic(ctx context.Context, id, userID int64, isPublic, promptPublic bool) error
+	UpdateProject(ctx context.Context, id, userID int64, projectID *int64) error
+	RetryFailedIfBelowUnfinishedLimit(ctx context.Context, id, userID int64, limit int) (*Record, error)
+	Delete(ctx context.Context, id, userID int64) (*Record, error)
+}
+
+type projectStore interface {
+	Create(ctx context.Context, p *Project) error
+	List(ctx context.Context, userID int64) ([]Project, error)
+	FindByID(ctx context.Context, id, userID int64) (*Project, error)
+	Rename(ctx context.Context, id, userID int64, name string) error
+	Delete(ctx context.Context, id, userID int64) error
 }
 
 // Handler wires record + project + image endpoints.
 type Handler struct {
-	records  *Repository
-	projects *ProjectRepository
+	records  recordStore
+	projects projectStore
 	blob     blob.Store
 	upstream UpstreamConfigReader
 }
@@ -73,7 +96,11 @@ func (h *Handler) Create(c *gin.Context) {
 		Status:          StatusWaiting,
 		ReferenceImages: StringSlice(req.ReferenceImages),
 	}
-	if err := h.records.Create(c.Request.Context(), rec); err != nil {
+	if err := h.records.CreateIfBelowUnfinishedLimit(c.Request.Context(), rec, h.upstream.PerUserQueueLimit()); err != nil {
+		if errors.Is(err, ErrQueueLimitReached) {
+			writeQueueLimit(c)
+			return
+		}
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}
@@ -244,8 +271,12 @@ func (h *Handler) Retry(c *gin.Context) {
 	if userID == 0 {
 		return
 	}
-	rec, err := h.records.RetryFailed(c.Request.Context(), id, userID)
+	rec, err := h.records.RetryFailedIfBelowUnfinishedLimit(c.Request.Context(), id, userID, h.upstream.PerUserQueueLimit())
 	if err != nil {
+		if errors.Is(err, ErrQueueLimitReached) {
+			writeQueueLimit(c)
+			return
+		}
 		if errors.Is(err, ErrNotFound) {
 			httpx.Fail(c, http.StatusConflict, httpx.CodeConflict, "只能重试失败的记录")
 			return
@@ -443,4 +474,9 @@ func contains(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func writeQueueLimit(c *gin.Context) {
+	c.Header("Retry-After", "30")
+	httpx.Fail(c, http.StatusTooManyRequests, httpx.CodeRateLimited, "当前未完成生图任务已达上限，请等待任务完成后再提交")
 }

@@ -13,6 +13,9 @@ import (
 // ErrNotFound is returned when a record / project doesn't exist (or isn't yours).
 var ErrNotFound = errors.New("record not found")
 
+// ErrQueueLimitReached is returned when a user's unfinished generation queue is full.
+var ErrQueueLimitReached = errors.New("record queue limit reached")
+
 // ListParams filters list queries.
 type ListParams struct {
 	UserID              int64
@@ -51,6 +54,29 @@ func (r *Repository) Create(ctx context.Context, rec *Record) error {
 	return r.db.WithContext(ctx).
 		Select("user_id", "project_id", "prompt", "model", "image_params", "status", "favorite", "reference_images").
 		Create(rec).Error
+}
+
+// CreateIfBelowUnfinishedLimit inserts a waiting record only when the user is below the unfinished limit.
+func (r *Repository) CreateIfBelowUnfinishedLimit(ctx context.Context, rec *Record, limit int) error {
+	if limit < 1 {
+		limit = 1
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", rec.UserID).Error; err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&Record{}).
+			Where("user_id = ? AND status IN ?", rec.UserID, []Status{StatusWaiting, StatusRunning}).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= int64(limit) {
+			return ErrQueueLimitReached
+		}
+		return tx.Select("user_id", "project_id", "prompt", "model", "image_params", "status", "favorite", "reference_images").
+			Create(rec).Error
+	})
 }
 
 // FindByID returns the record by id, scoped to userID unless userID == 0 (admin).
@@ -283,24 +309,53 @@ func (r *Repository) UpdateProject(ctx context.Context, id, userID int64, projec
 	return nil
 }
 
-// RetryFailed resets a failed record to waiting so the worker can process the
-// same record again. Non-failed records are left unchanged and return ErrNotFound.
-func (r *Repository) RetryFailed(ctx context.Context, id, userID int64) (*Record, error) {
-	res := r.db.WithContext(ctx).Model(&Record{}).
-		Where("id = ? AND user_id = ? AND status = ?", id, userID, StatusFailed).
-		Updates(map[string]any{
-			"status":         StatusWaiting,
-			"error":          nil,
-			"upstream_error": nil,
-			"started_at":     nil,
-			"completed_at":   nil,
-			"image_path":     nil,
-		})
-	if res.Error != nil {
-		return nil, res.Error
+// RetryFailedIfBelowUnfinishedLimit resets a failed record only when the user is below the unfinished limit.
+func (r *Repository) RetryFailedIfBelowUnfinishedLimit(ctx context.Context, id, userID int64, limit int) (*Record, error) {
+	if limit < 1 {
+		limit = 1
 	}
-	if res.RowsAffected == 0 {
-		return nil, ErrNotFound
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", userID).Error; err != nil {
+			return err
+		}
+		var exists int64
+		if err := tx.Model(&Record{}).
+			Where("id = ? AND user_id = ? AND status = ?", id, userID, StatusFailed).
+			Count(&exists).Error; err != nil {
+			return err
+		}
+		if exists == 0 {
+			return ErrNotFound
+		}
+		var count int64
+		if err := tx.Model(&Record{}).
+			Where("user_id = ? AND status IN ?", userID, []Status{StatusWaiting, StatusRunning}).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count >= int64(limit) {
+			return ErrQueueLimitReached
+		}
+		res := tx.Model(&Record{}).
+			Where("id = ? AND user_id = ? AND status = ?", id, userID, StatusFailed).
+			Updates(map[string]any{
+				"status":         StatusWaiting,
+				"error":          nil,
+				"upstream_error": nil,
+				"started_at":     nil,
+				"completed_at":   nil,
+				"image_path":     nil,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return r.FindByID(ctx, id, userID)
 }
@@ -317,34 +372,54 @@ func (r *Repository) Delete(ctx context.Context, id, userID int64) (*Record, err
 	return rec, nil
 }
 
-// ClaimWaiting atomically picks one waiting record and flips it to running.
+// ClaimWaiting atomically picks the oldest waiting record whose user is below the running cap.
 // Returns ErrNotFound if no candidate exists.
-//
-// Uses Postgres' SELECT … FOR UPDATE SKIP LOCKED inside a transaction so
-// multiple workers don't race on the same row.
-func (r *Repository) ClaimWaiting(ctx context.Context) (*Record, error) {
+func (r *Repository) ClaimWaiting(ctx context.Context, perUserWorkerConcurrency int) (*Record, error) {
+	perUserWorkerConcurrency = normalizePerUserWorkerConcurrency(perUserWorkerConcurrency)
 	var picked Record
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Raw(`
-			SELECT id FROM records
-			WHERE status = 'waiting'
-			ORDER BY id ASC
-			LIMIT 1
-			FOR UPDATE SKIP LOCKED
-		`).Scan(&picked).Error
-		if err != nil {
-			return err
+		excludedUsers := make([]int64, 0)
+		for {
+			picked = Record{}
+			if err := scanOldestEligibleWaiting(tx, perUserWorkerConcurrency, excludedUsers, &picked); err != nil {
+				return err
+			}
+			if picked.ID == 0 {
+				return gorm.ErrRecordNotFound
+			}
+			var locked bool
+			if err := tx.Raw("SELECT pg_try_advisory_xact_lock(?)", picked.UserID).Scan(&locked).Error; err != nil {
+				return err
+			}
+			if !locked {
+				excludedUsers = append(excludedUsers, picked.UserID)
+				continue
+			}
+			var running int64
+			if err := tx.Model(&Record{}).
+				Where("user_id = ? AND status = ?", picked.UserID, StatusRunning).
+				Count(&running).Error; err != nil {
+				return err
+			}
+			if running >= int64(perUserWorkerConcurrency) {
+				excludedUsers = append(excludedUsers, picked.UserID)
+				continue
+			}
+			now := time.Now()
+			res := tx.Model(&Record{}).
+				Where("id = ? AND status = ?", picked.ID, StatusWaiting).
+				Updates(map[string]any{
+					"status":     StatusRunning,
+					"started_at": now,
+				})
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				continue
+			}
+			return nil
 		}
-		if picked.ID == 0 {
-			return gorm.ErrRecordNotFound
-		}
-		now := time.Now()
-		return tx.Model(&Record{}).
-			Where("id = ?", picked.ID).
-			Updates(map[string]any{
-				"status":     StatusRunning,
-				"started_at": now,
-			}).Error
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrNotFound
@@ -352,8 +427,46 @@ func (r *Repository) ClaimWaiting(ctx context.Context) (*Record, error) {
 	if err != nil {
 		return nil, err
 	}
-	// re-read with full columns
 	return r.FindByID(ctx, picked.ID, 0)
+}
+
+func normalizePerUserWorkerConcurrency(n int) int {
+	if n < 1 {
+		return 1
+	}
+	if n > 16 {
+		return 16
+	}
+	return n
+}
+
+func oldestEligibleWaitingSQL(excludedUsers []int64) (string, []any) {
+	q := `
+		SELECT r.id, r.user_id
+		FROM records r
+		WHERE r.status = 'waiting'
+		  AND (
+			SELECT count(*)
+			FROM records running
+			WHERE running.user_id = r.user_id
+			  AND running.status = 'running'
+		  ) < ?`
+	args := []any{nil}
+	if len(excludedUsers) > 0 {
+		q += " AND r.user_id NOT IN ?"
+		args = append(args, excludedUsers)
+	}
+	q += `
+		ORDER BY r.id ASC
+		LIMIT 1
+		FOR UPDATE SKIP LOCKED`
+	return q, args
+}
+
+func scanOldestEligibleWaiting(tx *gorm.DB, perUserWorkerConcurrency int, excludedUsers []int64, picked *Record) error {
+	q, args := oldestEligibleWaitingSQL(excludedUsers)
+	args[0] = perUserWorkerConcurrency
+	return tx.Raw(q, args...).Scan(picked).Error
 }
 
 // StoreGenerated writes the success outcome for a single generated image.

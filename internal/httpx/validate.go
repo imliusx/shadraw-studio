@@ -42,8 +42,14 @@ func humanizeTag(fe validator.FieldError) string {
 	case "email":
 		return "邮箱格式不合法"
 	case "min":
+		if fe.Kind().String() == "int" {
+			return "至少为 " + fe.Param()
+		}
 		return "至少 " + fe.Param() + " 个字符"
 	case "max":
+		if fe.Kind().String() == "int" {
+			return "至多为 " + fe.Param()
+		}
 		return "至多 " + fe.Param() + " 个字符"
 	case "len":
 		return "长度必须为 " + fe.Param()
