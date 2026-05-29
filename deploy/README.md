@@ -187,6 +187,8 @@ sudo journalctl -u shadraw-api -f
 sudo systemctl restart shadraw-api
 ```
 
+卸载和清理步骤见 [`uninstall.md`](./uninstall.md)。
+
 ## 故障排查
 
 - `shadraw-api` 起不来：看 `sudo journalctl -u shadraw-api -n 100 --no-pager`。
