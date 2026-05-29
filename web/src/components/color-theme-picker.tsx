@@ -8,6 +8,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { glassOverlayContentClassName } from "@/lib/surface-styles"
 import { COLOR_THEME_OPTIONS, type ColorTheme } from "@/lib/theme/color-theme"
 import { cn } from "@/lib/utils"
 import { useColorTheme } from "@/providers/use-color-theme"
@@ -27,7 +28,10 @@ export function ColorThemePicker() {
           <Palette />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-30 min-w-30">
+      <DropdownMenuContent
+        align="end"
+        className={cn(glassOverlayContentClassName, "w-30 min-w-30")}
+      >
         <DropdownMenuRadioGroup
           value={colorTheme}
           onValueChange={(value) => setColorTheme(value as ColorTheme)}

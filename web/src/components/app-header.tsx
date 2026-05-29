@@ -26,6 +26,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { glassOverlayContentClassName } from "@/lib/surface-styles"
+import { cn } from "@/lib/utils"
 import { useMotionVariants } from "@/lib/motion"
 
 const NAV_ITEMS = [
@@ -145,7 +147,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full p-0 transition-colors hover:border-primary/70 hover:bg-primary/10 data-[state=open]:border-primary/70 data-[state=open]:bg-primary/10"
+                className="rounded-full p-0 transition-colors hover:bg-muted data-[state=open]:bg-muted dark:hover:bg-muted/50 dark:data-[state=open]:bg-muted/50"
                 aria-label="打开个人中心"
               >
                 <Avatar>
@@ -153,7 +155,10 @@ export function AppHeader() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[12rem]">
+            <DropdownMenuContent
+              align="end"
+              className={cn(glassOverlayContentClassName, "min-w-[12rem]")}
+            >
               <DropdownMenuLabel className="px-2 py-1.5">
                 <div className="flex items-center gap-3">
                   <Avatar size="lg">

@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useMotionVariants } from "@/lib/motion"
+import { cn } from "@/lib/utils"
 
 type SectionId = "account" | "general"
 
@@ -28,6 +29,12 @@ const SECTIONS: ReadonlyArray<SectionMeta> = [
   { id: "account", label: "账户", icon: CircleUser },
   { id: "general", label: "通用", icon: Settings },
 ]
+
+const settingsSurfaceClassName =
+  "relative isolate gap-0 bg-popover/60 py-0 text-popover-foreground shadow-none ring-1 ring-foreground/10 before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:rounded-[inherit] before:backdrop-blur-2xl before:backdrop-saturate-150"
+
+const settingsInputClassName =
+  "w-full bg-background/20 shadow-none sm:w-64"
 
 export function SettingsView() {
   return (
@@ -71,7 +78,7 @@ export function SettingsContent({ variant }: { variant: "page" | "dialog" }) {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={active}
-              className="p-1"
+              className="py-1 pl-1 pr-5"
               variants={fadeInUp}
               initial="hidden"
               animate="show"
@@ -147,9 +154,9 @@ function AccountSection() {
         <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           基础资料
         </h3>
-        <Card className="gap-0 py-0">
-          <div className="divide-y">
-            <SettingRow label="头像" description="JPG / PNG, 不超过 2MB">
+        <Card className={settingsSurfaceClassName}>
+          <div className="divide-y divide-foreground/5">
+            <SettingRow label="头像" description="JPG / PNG, 不超过 2MB" compact>
               <button
                 type="button"
                 onClick={() => notImplemented("修改头像")}
@@ -161,16 +168,16 @@ function AccountSection() {
                 </Avatar>
               </button>
             </SettingRow>
-            <SettingRow label="昵称" description="在画廊与日志里展示">
+            <SettingRow label="昵称" description="在画廊与日志里展示" compact>
               <Input
-                className="w-64"
+                className={settingsInputClassName}
                 defaultValue={user?.displayName ?? ""}
                 placeholder="未设置"
               />
             </SettingRow>
-            <SettingRow label="邮箱" description="用于登录与接收通知">
+            <SettingRow label="邮箱" description="用于登录与接收通知" compact>
               <Input
-                className="w-64"
+                className={settingsInputClassName}
                 type="email"
                 defaultValue={user?.email ?? ""}
                 readOnly
@@ -184,8 +191,8 @@ function AccountSection() {
         <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           账户安全
         </h3>
-        <Card className="gap-0 py-0">
-          <div className="divide-y">
+        <Card className={settingsSurfaceClassName}>
+          <div className="divide-y divide-foreground/5">
             <SettingRow
               label="修改密码"
               description="建议每 90 天更换一次"
@@ -218,8 +225,8 @@ function AccountSection() {
         <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           危险区
         </h3>
-        <Card className="gap-0 py-0">
-          <div className="divide-y">
+        <Card className={settingsSurfaceClassName}>
+          <div className="divide-y divide-foreground/5">
             <SettingRow
               label="删除账户"
               description="此操作不可恢复,所有云端与本地数据将一并清除"
@@ -248,7 +255,7 @@ function GeneralSection() {
         <h3 className="px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           偏好
         </h3>
-        <Card className="gap-0 py-0">
+        <Card className={settingsSurfaceClassName}>
           <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
             <Sparkles className="size-5 text-muted-foreground" />
             <p className="text-sm font-medium">更多选项即将上线</p>
@@ -265,21 +272,28 @@ function GeneralSection() {
 function SettingRow({
   label,
   description,
+  compact = false,
   children,
 }: {
   label: string
   description?: string
+  compact?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 px-4 py-4">
+    <div
+      className={cn(
+        "flex flex-col gap-3 px-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6",
+        compact ? "py-3" : "py-4"
+      )}
+    >
       <div className="min-w-0 space-y-1">
         <div className="text-sm font-medium">{label}</div>
         {description ? (
           <div className="text-xs text-muted-foreground">{description}</div>
         ) : null}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="min-w-0 sm:shrink-0">{children}</div>
     </div>
   )
 }
