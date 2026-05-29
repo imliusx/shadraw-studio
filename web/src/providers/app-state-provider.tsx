@@ -24,7 +24,6 @@ import {
   dtoToRecord,
   dtoToRecordPatch,
 } from "@/lib/api/record-mappers"
-import { tokenStorage } from "@/lib/api/auth-storage"
 import { useAuth } from "@/providers/auth-provider"
 import type {
   ApiStatus,
@@ -523,7 +522,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     wipe()
     let cancelled = false
     async function hydrate() {
-      if (!userId || !tokenStorage.read()) {
+      if (!userId) {
         dispatch({ type: "system/hydrated" })
         dispatch({ type: "ui/setApiStatus", payload: { status: "idle" } })
         return

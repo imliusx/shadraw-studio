@@ -1,6 +1,7 @@
 // shadraw 后端 Auth 客户端。封装统一响应外壳 / 错误码 / 401 自动 refresh。
 // 前端与后端同源部署，所有路径使用相对路径（生产同主机，dev 由 Vite proxy 转发）。
 
+import { refreshAccessToken } from "./auth-refresh"
 import { tokenStorage, type StoredTokens } from "./auth-storage"
 
 export type AuthUser = {
@@ -84,14 +85,12 @@ async function request<T>(
   headers.set("Content-Type", "application/json")
   if (auth) {
     const tokens = tokenStorage.read()
-    if (tokens?.accessToken) {
-      headers.set("Authorization", `Bearer ${tokens.accessToken}`)
-    }
+    if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`)
   }
 
   let resp: Response
   try {
-    resp = await fetch(path, { ...init, headers })
+    resp = await fetch(path, { ...init, headers, credentials: "same-origin" })
   } catch (err) {
     throw new AuthError(
       "network_error",
@@ -115,7 +114,7 @@ async function request<T>(
   }
 
   if (resp.status === 401 && auth && retry401) {
-    const refreshed = await tryRefresh()
+    const refreshed = await refreshAccessToken()
     if (refreshed) {
       return request<T>(path, init, { ...options, retry401: false })
     }
@@ -124,29 +123,6 @@ async function request<T>(
   const code = (env?.error?.code as AuthErrorCode | undefined) ?? "internal_error"
   const message = env?.error?.message ?? `请求失败 (${resp.status})`
   throw new AuthError(code, message, resp.status, env?.error?.fields)
-}
-
-async function tryRefresh(): Promise<boolean> {
-  const tokens = tokenStorage.read()
-  if (!tokens?.refreshToken) return false
-  try {
-    const data = await request<{ tokens: StoredTokens & { expiresIn: number } }>(
-      "/api/v1/auth/refresh",
-      {
-        method: "POST",
-        body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-      },
-      { auth: false, retry401: false }
-    )
-    tokenStorage.write({
-      accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken,
-    })
-    return true
-  } catch {
-    tokenStorage.clear()
-    return false
-  }
 }
 
 export const authApi = {
@@ -158,7 +134,6 @@ export const authApi = {
     )
     tokenStorage.write({
       accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken,
     })
     return data
   },
@@ -171,7 +146,6 @@ export const authApi = {
     )
     tokenStorage.write({
       accessToken: data.tokens.accessToken,
-      refreshToken: data.tokens.refreshToken,
     })
     return data
   },
@@ -185,19 +159,20 @@ export const authApi = {
     return data.user
   },
 
+  async refresh(): Promise<void> {
+    const ok = await refreshAccessToken()
+    if (!ok) {
+      throw new AuthError("unauthorized", "登录已过期", 401)
+    }
+  },
+
   async logout(): Promise<void> {
-    const tokens = tokenStorage.read()
     try {
-      if (tokens?.refreshToken) {
-        await request<{ ok: boolean }>(
-          "/api/v1/auth/logout",
-          {
-            method: "POST",
-            body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-          },
-          { auth: true, retry401: false }
-        )
-      }
+      await request<{ ok: boolean }>(
+        "/api/v1/auth/logout",
+        { method: "POST" },
+        { auth: true, retry401: false }
+      )
     } catch {
       // best-effort; clear local state regardless
     }

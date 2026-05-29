@@ -158,10 +158,10 @@ func newRig(t *testing.T) *testRig {
 	v1.POST("/auth/register", h.RegisterEndpoint)
 	v1.POST("/auth/login", h.LoginEndpoint)
 	v1.POST("/auth/refresh", h.RefreshEndpoint)
+	v1.POST("/auth/logout", h.LogoutEndpoint)
 
 	secured := v1.Group("")
 	secured.Use(auth.RequireAuth(secret, users))
-	secured.POST("/auth/logout", h.LogoutEndpoint)
 	secured.GET("/auth/me", h.MeEndpoint)
 	secured.POST("/auth/password", h.ChangePasswordEndpoint)
 
@@ -216,19 +216,103 @@ func registerOK(t *testing.T, r *testRig, email, pw string) auth.AuthResponse {
 	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
 		t.Fatalf("decode register: %v", err)
 	}
+	if env.Data.Tokens.RefreshToken != "" {
+		t.Fatalf("refresh token should not be returned in JSON")
+	}
 	return env.Data
+}
+
+func refreshCookieFrom(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
+	t.Helper()
+	for _, cookie := range w.Result().Cookies() {
+		if cookie.Name == "shadraw_refresh" {
+			return cookie
+		}
+	}
+	t.Fatalf("missing shadraw_refresh cookie; set-cookie=%q", w.Header().Values("Set-Cookie"))
+	return nil
+}
+
+func registerOKWithCookie(t *testing.T, r *testRig, email, pw string) (auth.AuthResponse, *http.Cookie) {
+	t.Helper()
+	w := r.do(t, http.MethodPost, "/api/v1/auth/register", auth.RegisterReq{
+		Email: email, Password: pw, DisplayName: "u",
+	}, "")
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register: status=%d body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data  auth.AuthResponse `json:"data"`
+		Error any               `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode register: %v", err)
+	}
+	return env.Data, refreshCookieFrom(t, w)
+}
+
+func (r *testRig) doWithCookies(t *testing.T, method, path string, body any, bearer string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+	var rdr *bytes.Reader
+	if body != nil {
+		b, _ := json.Marshal(body)
+		rdr = bytes.NewReader(b)
+	} else {
+		rdr = bytes.NewReader(nil)
+	}
+	req := httptest.NewRequest(method, path, rdr)
+	req.Header.Set("Content-Type", "application/json")
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+	w := httptest.NewRecorder()
+	r.engine.ServeHTTP(w, req)
+	return w
 }
 
 // ---- tests ---------------------------------------------------------------
 
 func TestHandler_Register_201(t *testing.T) {
 	r := newRig(t)
-	resp := registerOK(t, r, "a@b.com", "12345678")
+	resp, cookie := registerOKWithCookie(t, r, "a@b.com", "12345678")
 	if resp.User.Email != "a@b.com" {
 		t.Fatalf("user.email = %q", resp.User.Email)
 	}
 	if _, err := strconv.ParseInt(resp.User.ID, 10, 64); err != nil {
 		t.Fatalf("user.id should be a string-encoded number, got %q", resp.User.ID)
+	}
+	if !cookie.HttpOnly {
+		t.Fatalf("refresh cookie should be HttpOnly")
+	}
+	if cookie.Path != "/api/v1/auth" {
+		t.Fatalf("refresh cookie path = %q, want /api/v1/auth", cookie.Path)
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("refresh cookie SameSite = %v, want Lax", cookie.SameSite)
+	}
+}
+
+func TestHandler_Register_SecureCookieBehindHTTPSProxy(t *testing.T) {
+	r := newRig(t)
+	body, _ := json.Marshal(auth.RegisterReq{
+		Email: "secure@b.com", Password: "12345678", DisplayName: "u",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/register", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	w := httptest.NewRecorder()
+
+	r.engine.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register: status=%d body=%s", w.Code, w.Body.String())
+	}
+	cookie := refreshCookieFrom(t, w)
+	if !cookie.Secure {
+		t.Fatalf("refresh cookie should be Secure behind HTTPS proxy")
 	}
 }
 
@@ -357,26 +441,54 @@ func TestHandler_Me_401_NoBearer(t *testing.T) {
 
 func TestHandler_Refresh_RotatesPair(t *testing.T) {
 	r := newRig(t)
-	resp := registerOK(t, r, "a@b.com", "12345678")
+	_, cookie := registerOKWithCookie(t, r, "a@b.com", "12345678")
 
-	w := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{
-		RefreshToken: resp.Tokens.RefreshToken,
-	}, "")
+	w := r.doWithCookies(t, http.MethodPost, "/api/v1/auth/refresh", nil, "", cookie)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
 	}
+	var env struct {
+		Data struct {
+			Tokens auth.TokenPair `json:"tokens"`
+		} `json:"data"`
+		Error any `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode refresh: %v", err)
+	}
+	if env.Data.Tokens.AccessToken == "" {
+		t.Fatalf("refresh response missing access token")
+	}
+	if env.Data.Tokens.RefreshToken != "" {
+		t.Fatalf("refresh token should not be returned in JSON")
+	}
+	nextCookie := refreshCookieFrom(t, w)
+	if nextCookie.Value == "" || nextCookie.Value == cookie.Value {
+		t.Fatalf("refresh cookie was not rotated")
+	}
 	// old token should be unusable
-	w2 := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{
-		RefreshToken: resp.Tokens.RefreshToken,
-	}, "")
+	w2 := r.doWithCookies(t, http.MethodPost, "/api/v1/auth/refresh", nil, "", cookie)
 	if w2.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 on reused refresh, got %d", w2.Code)
 	}
 }
 
+func TestHandler_Refresh_LegacyBodyStillWorks(t *testing.T) {
+	r := newRig(t)
+	_, cookie := registerOKWithCookie(t, r, "legacy@b.com", "12345678")
+
+	w := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{
+		RefreshToken: cookie.Value,
+	}, "")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+	}
+}
+
 func TestHandler_ChangePassword_RevokesRefreshAndInvalidatesOldPw(t *testing.T) {
 	r := newRig(t)
-	resp := registerOK(t, r, "a@b.com", "12345678")
+	resp, cookie := registerOKWithCookie(t, r, "a@b.com", "12345678")
 
 	w := r.do(t, http.MethodPost, "/api/v1/auth/password", auth.ChangePasswordReq{
 		OldPassword: "12345678", NewPassword: "newpassw0rd",
@@ -384,11 +496,13 @@ func TestHandler_ChangePassword_RevokesRefreshAndInvalidatesOldPw(t *testing.T) 
 	if w.Code != http.StatusOK {
 		t.Fatalf("change pwd: status=%d body=%s", w.Code, w.Body.String())
 	}
+	cleared := refreshCookieFrom(t, w)
+	if cleared.MaxAge >= 0 {
+		t.Fatalf("change password should clear refresh cookie, maxAge=%d", cleared.MaxAge)
+	}
 
 	// old refresh revoked
-	w2 := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{
-		RefreshToken: resp.Tokens.RefreshToken,
-	}, "")
+	w2 := r.doWithCookies(t, http.MethodPost, "/api/v1/auth/refresh", nil, "", cookie)
 	if w2.Code != http.StatusUnauthorized {
 		t.Fatalf("old refresh should be 401, got %d", w2.Code)
 	}
@@ -404,17 +518,17 @@ func TestHandler_ChangePassword_RevokesRefreshAndInvalidatesOldPw(t *testing.T) 
 
 func TestHandler_Logout_RevokesToken(t *testing.T) {
 	r := newRig(t)
-	resp := registerOK(t, r, "a@b.com", "12345678")
+	_, cookie := registerOKWithCookie(t, r, "a@b.com", "12345678")
 
-	w := r.do(t, http.MethodPost, "/api/v1/auth/logout", auth.LogoutReq{
-		RefreshToken: resp.Tokens.RefreshToken,
-	}, resp.Tokens.AccessToken)
+	w := r.doWithCookies(t, http.MethodPost, "/api/v1/auth/logout", nil, "", cookie)
 	if w.Code != http.StatusOK {
 		t.Fatalf("logout: status=%d body=%s", w.Code, w.Body.String())
 	}
-	w2 := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{
-		RefreshToken: resp.Tokens.RefreshToken,
-	}, "")
+	cleared := refreshCookieFrom(t, w)
+	if cleared.MaxAge >= 0 {
+		t.Fatalf("logout should clear refresh cookie, maxAge=%d", cleared.MaxAge)
+	}
+	w2 := r.doWithCookies(t, http.MethodPost, "/api/v1/auth/refresh", nil, "", cookie)
 	if w2.Code != http.StatusUnauthorized {
 		t.Fatalf("after logout, refresh should be 401, got %d", w2.Code)
 	}
@@ -458,8 +572,8 @@ func TestHandler_RequireAuth_DisabledAfterIssue(t *testing.T) {
 func TestHandler_Refresh_422_MissingBody(t *testing.T) {
 	r := newRig(t)
 	w := r.do(t, http.MethodPost, "/api/v1/auth/refresh", auth.RefreshReq{}, "")
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422", w.Code)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", w.Code)
 	}
 }
 

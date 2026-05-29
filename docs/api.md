@@ -9,6 +9,7 @@
 - Base URL：`http://localhost:8088/api/v1`（生产替换为部署 origin）
 - 响应外壳：`{ "data": <T>, "error": null | { code, message, fields? }, "meta"?: ... }`
 - 鉴权：受保护接口需 `Authorization: Bearer <accessToken>`
+- refresh token 通过 `HttpOnly` cookie 下发和轮换；浏览器 JS 不读取、不持久化 refresh token
 - ID：JSON 中**永远是字符串**
 
 ## 错误码
@@ -58,13 +59,20 @@
     },
     "tokens": {
       "accessToken": "eyJhbGc...",
-      "refreshToken": "tR2HfL...",
       "expiresIn": 900
     }
   },
   "error": null
 }
 ```
+
+同时返回响应头：
+
+```http
+Set-Cookie: shadraw_refresh=<opaque>; Path=/api/v1/auth; Max-Age=604800; HttpOnly; SameSite=Lax
+```
+
+HTTPS 或反代透传 `X-Forwarded-Proto: https` / `X-Forwarded-Ssl: on` 时会额外带 `Secure`。
 
 - 409（邮箱已注册）：
 
@@ -111,7 +119,7 @@
 { "email": "alice@example.com", "password": "hunter2pass" }
 ```
 
-- 200 响应：与 register 同结构。
+- 200 响应：与 register 同结构，返回新的 `shadraw_refresh` HttpOnly cookie。
 - 401（邮箱或密码错）：`{ "error": { "code": "unauthorized", "message": "邮箱或密码错误" } }`
 - 403（账号禁用）：`{ "error": { "code": "account_disabled", "message": "账号已禁用" } }`
 
@@ -119,11 +127,11 @@
 
 ## POST /auth/refresh
 
-用 refresh token 换取新的 access + refresh 对（rotation）。**老的 refresh 立即失效**。
+用 `shadraw_refresh` cookie 换取新的 access token，并轮换 refresh cookie。**老的 refresh 立即失效**。
 
 - 鉴权：无
 - 限流：60/min/IP
-- 请求体：`{ "refreshToken": "tR2HfL..." }`
+- 请求体：无。旧客户端可继续传 `{ "refreshToken": "tR2HfL..." }` 作为兼容路径。
 - 200 响应：
 
 ```json
@@ -131,7 +139,6 @@
   "data": {
     "tokens": {
       "accessToken": "eyJhbGc...",
-      "refreshToken": "newRefresh...",
       "expiresIn": 900
     }
   },
@@ -139,19 +146,22 @@
 }
 ```
 
+同时返回新的 `Set-Cookie: shadraw_refresh=...`；旧 cookie 对应的 refresh token 会被撤销。
+
 - 401：`{ "error": { "code": "unauthorized", "message": "refresh token 无效" } }`（包含 invalid / expired / revoked 三种情况）
 
 ---
 
 ## POST /auth/logout
 
-撤销指定的 refresh token。
+撤销当前 `shadraw_refresh` cookie 对应的 refresh token，并清除 cookie。
 
-- 鉴权：Bearer
-- 限流：60/min/user
-- 请求体：`{ "refreshToken": "tR2HfL..." }`
+- 鉴权：无
+- 限流：60/min/IP
+- 请求体：无。旧客户端可继续传 `{ "refreshToken": "tR2HfL..." }` 作为兼容路径。
 - 200 响应：`{ "data": { "ok": true }, "error": null }`
-- 未知 token 视为成功（幂等）。
+- 未知 token 或缺少 cookie 视为成功（幂等）。
+- 响应会带 `Set-Cookie: shadraw_refresh=; Path=/api/v1/auth; Max-Age=0; HttpOnly; SameSite=Lax` 清理 cookie。
 
 ---
 
@@ -173,7 +183,7 @@
 
 ## POST /auth/password
 
-修改密码。验证旧密码后写入新密；**所有 refresh token 被立即撤销**。
+修改密码。验证旧密码后写入新密；**所有 refresh token 被立即撤销**，当前浏览器的 refresh cookie 也会被清除。
 
 - 鉴权：Bearer
 - 限流：10/min/user

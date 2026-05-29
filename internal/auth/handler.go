@@ -11,6 +11,8 @@ import (
 	"github.com/liusx/shadraw/internal/user"
 )
 
+const refreshCookieName = "shadraw_refresh"
+
 // Handler bundles the auth HTTP endpoints.
 type Handler struct {
 	svc                *Service
@@ -57,6 +59,8 @@ func (h *Handler) register(c *gin.Context) {
 		}
 		return
 	}
+	setRefreshCookie(c, resp.Tokens.RefreshToken)
+	resp.Tokens.RefreshToken = ""
 	httpx.Created(c, resp)
 }
 
@@ -77,41 +81,115 @@ func (h *Handler) login(c *gin.Context) {
 		}
 		return
 	}
+	setRefreshCookie(c, resp.Tokens.RefreshToken)
+	resp.Tokens.RefreshToken = ""
 	httpx.OK(c, resp)
 }
 
 func (h *Handler) refresh(c *gin.Context) {
 	var req RefreshReq
-	if !httpx.BindJSON(c, &req) {
+	if c.Request.Body != nil && c.Request.ContentLength != 0 {
+		if !httpx.BindJSON(c, &req) {
+			return
+		}
+	}
+	raw := req.RefreshToken
+	if raw == "" {
+		raw = refreshCookie(c)
+	}
+	if raw == "" {
+		clearRefreshCookie(c)
+		httpx.Fail(c, http.StatusUnauthorized, httpx.CodeUnauthorized, "refresh token 无效")
 		return
 	}
-	pair, err := h.svc.Refresh(c.Request.Context(), req.RefreshToken)
+	pair, err := h.svc.Refresh(c.Request.Context(), raw)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrRefreshInvalid),
 			errors.Is(err, ErrRefreshExpired),
 			errors.Is(err, ErrRefreshRevoked):
+			clearRefreshCookie(c)
 			httpx.Fail(c, http.StatusUnauthorized, httpx.CodeUnauthorized, "refresh token 无效")
 		case errors.Is(err, ErrUserDisabled):
+			clearRefreshCookie(c)
 			httpx.Fail(c, http.StatusForbidden, httpx.CodeAccountDisabled, "账号已禁用")
 		default:
 			httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		}
 		return
 	}
+	setRefreshCookie(c, pair.RefreshToken)
+	pair.RefreshToken = ""
 	httpx.OK(c, gin.H{"tokens": pair})
 }
 
 func (h *Handler) logout(c *gin.Context) {
 	var req LogoutReq
-	if !httpx.BindJSON(c, &req) {
-		return
+	if c.Request.Body != nil && c.Request.ContentLength != 0 {
+		if !httpx.BindJSON(c, &req) {
+			return
+		}
 	}
-	if err := h.svc.Logout(c.Request.Context(), req.RefreshToken); err != nil {
-		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
-		return
+	raw := req.RefreshToken
+	if raw == "" {
+		raw = refreshCookie(c)
 	}
+	if raw != "" {
+		if err := h.svc.Logout(c.Request.Context(), raw); err != nil {
+			httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
+			return
+		}
+	}
+	clearRefreshCookie(c)
 	httpx.OK(c, gin.H{"ok": true})
+}
+
+func setRefreshCookie(c *gin.Context, raw string) {
+	if raw == "" {
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    raw,
+		Path:     "/api/v1/auth",
+		MaxAge:   int(RefreshTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   isHTTPS(c),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func clearRefreshCookie(c *gin.Context) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    "",
+		Path:     "/api/v1/auth",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isHTTPS(c),
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func refreshCookie(c *gin.Context) string {
+	cookie, err := c.Request.Cookie(refreshCookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
+func isHTTPS(c *gin.Context) bool {
+	if c.Request.TLS != nil {
+		return true
+	}
+	if c.GetHeader("X-Forwarded-Proto") == "https" {
+		return true
+	}
+	if c.GetHeader("X-Forwarded-Ssl") == "on" {
+		return true
+	}
+	return false
 }
 
 func (h *Handler) me(c *gin.Context) {
@@ -151,5 +229,6 @@ func (h *Handler) changePassword(c *gin.Context) {
 		}
 		return
 	}
+	clearRefreshCookie(c)
 	httpx.OK(c, gin.H{"ok": true})
 }

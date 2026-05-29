@@ -1,30 +1,32 @@
-// In-browser token storage. MVP 阶段把 access + refresh 都放在 localStorage,
-// 风险是 XSS 可拿到 token; 等正式上线再迁到 httpOnly cookie。
+// In-browser access-token storage. Refresh tokens live in an HttpOnly cookie;
+// access tokens stay in memory only so XSS cannot read long-lived credentials.
 
 const ACCESS_KEY = "shadraw.access"
 const REFRESH_KEY = "shadraw.refresh"
 
 export type StoredTokens = {
   accessToken: string
-  refreshToken: string
+}
+
+let memoryTokens: StoredTokens | null = null
+
+function clearLegacyLocalStorage() {
+  if (typeof window === "undefined") return
+  window.localStorage.removeItem(ACCESS_KEY)
+  window.localStorage.removeItem(REFRESH_KEY)
 }
 
 export const tokenStorage = {
   read(): StoredTokens | null {
-    if (typeof window === "undefined") return null
-    const access = window.localStorage.getItem(ACCESS_KEY)
-    const refresh = window.localStorage.getItem(REFRESH_KEY)
-    if (!access || !refresh) return null
-    return { accessToken: access, refreshToken: refresh }
+    clearLegacyLocalStorage()
+    return memoryTokens
   },
   write(tokens: StoredTokens) {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(ACCESS_KEY, tokens.accessToken)
-    window.localStorage.setItem(REFRESH_KEY, tokens.refreshToken)
+    clearLegacyLocalStorage()
+    memoryTokens = { accessToken: tokens.accessToken }
   },
   clear() {
-    if (typeof window === "undefined") return
-    window.localStorage.removeItem(ACCESS_KEY)
-    window.localStorage.removeItem(REFRESH_KEY)
+    memoryTokens = null
+    clearLegacyLocalStorage()
   },
 }

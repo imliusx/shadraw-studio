@@ -2,7 +2,8 @@
 // 业务接口（records / projects / admin）都通过此模块发请求。
 // 前端与后端同源部署，所有路径使用相对路径（生产同主机，dev 由 Vite proxy 转发）。
 
-import { tokenStorage, type StoredTokens } from "./auth-storage"
+import { refreshAccessToken } from "./auth-refresh"
+import { tokenStorage } from "./auth-storage"
 
 export type ApiErrorCode =
   | "validation_failed"
@@ -95,7 +96,7 @@ async function request<T>(
 
   let resp: Response
   try {
-    resp = await fetch(path, { method, headers, body })
+    resp = await fetch(path, { method, headers, body, credentials: "same-origin" })
   } catch (err) {
     throw new ApiError(
       "network_error",
@@ -119,7 +120,7 @@ async function request<T>(
   }
 
   if (resp.status === 401 && auth && retry401) {
-    const refreshed = await tryRefresh()
+    const refreshed = await refreshAccessToken()
     if (refreshed) {
       return request<T>(path, { ...init, retry401: false })
     }
@@ -128,38 +129,6 @@ async function request<T>(
   const code = (env?.error?.code as ApiErrorCode | undefined) ?? "internal_error"
   const message = env?.error?.message ?? `请求失败 (${resp.status})`
   throw new ApiError(code, message, resp.status, env?.error?.fields)
-}
-
-async function tryRefresh(): Promise<boolean> {
-  const tokens = tokenStorage.read()
-  if (!tokens?.refreshToken) return false
-  try {
-    const headers = new Headers({ "Content-Type": "application/json" })
-    const resp = await fetch(`/api/v1/auth/refresh`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ refreshToken: tokens.refreshToken }),
-    })
-    if (!resp.ok) {
-      tokenStorage.clear()
-      return false
-    }
-    const env = (await resp.json()) as Envelope<{
-      tokens: StoredTokens & { expiresIn: number }
-    }>
-    if (!env.data?.tokens) {
-      tokenStorage.clear()
-      return false
-    }
-    tokenStorage.write({
-      accessToken: env.data.tokens.accessToken,
-      refreshToken: env.data.tokens.refreshToken,
-    })
-    return true
-  } catch {
-    tokenStorage.clear()
-    return false
-  }
 }
 
 export const apiClient = {
@@ -183,7 +152,7 @@ export async function fetchImageBlobURL(recordId: string): Promise<string> {
   const headers = new Headers()
   if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`)
   const path = `/api/v1/images/${recordId}`
-  const resp = await fetch(path, { headers })
+  const resp = await fetch(path, { headers, credentials: "same-origin" })
   if (!resp.ok) {
     throw new ApiError(
       "not_found",

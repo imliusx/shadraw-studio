@@ -15,7 +15,6 @@ import {
   type LoginPayload,
   type RegisterPayload,
 } from "@/lib/api/auth-client"
-import { tokenStorage } from "@/lib/api/auth-storage"
 
 export type AuthUser = {
   id: string
@@ -72,22 +71,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [isInitializing, setIsInitializing] = useState(true)
 
-  // Restore session on mount: if a refresh token exists, try GET /auth/me.
+  // Restore session on mount: rotate the HttpOnly refresh cookie into a fresh
+  // in-memory access token, then fetch the current user.
   useEffect(() => {
     let cancelled = false
     async function restore() {
-      const tokens = tokenStorage.read()
-      if (!tokens) {
-        setIsInitializing(false)
-        return
-      }
       try {
+        await authApi.refresh()
         const me = await authApi.me()
         if (cancelled) return
         setUser(toUser(me))
       } catch {
-        // 401 or other: invalid session, drop tokens
-        tokenStorage.clear()
+        // No valid refresh cookie; keep the user signed out.
       } finally {
         if (!cancelled) setIsInitializing(false)
       }

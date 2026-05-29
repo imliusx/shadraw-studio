@@ -124,6 +124,7 @@ func run() error {
 		v1.POST("/auth/register", httpx.RateLimit(5, time.Minute, httpx.KeyByIP), authHandler.RegisterEndpoint)
 		v1.POST("/auth/login", httpx.RateLimit(5, time.Minute, httpx.KeyByIP), authHandler.LoginEndpoint)
 		v1.POST("/auth/refresh", httpx.RateLimit(60, time.Minute, httpx.KeyByIP), authHandler.RefreshEndpoint)
+		v1.POST("/auth/logout", httpx.RateLimit(60, time.Minute, httpx.KeyByIP), authHandler.LogoutEndpoint)
 
 		// public config (enabled models + site title so the front-end can hydrate shells)
 		v1.GET("/config", func(c *gin.Context) {
@@ -133,7 +134,6 @@ func run() error {
 		// authenticated user-scope endpoints
 		secured := v1.Group("")
 		secured.Use(auth.RequireAuth(cfg.JWTSecret, userRepo))
-		secured.POST("/auth/logout", httpx.RateLimit(60, time.Minute, httpx.KeyByUser), authHandler.LogoutEndpoint)
 		secured.GET("/auth/me", authHandler.MeEndpoint)
 		secured.POST("/auth/password", httpx.RateLimit(10, time.Minute, httpx.KeyByUser), authHandler.ChangePasswordEndpoint)
 

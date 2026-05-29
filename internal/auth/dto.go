@@ -15,14 +15,16 @@ type LoginReq struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// RefreshReq is the body for POST /api/v1/auth/refresh.
+// RefreshReq is the optional legacy body for POST /api/v1/auth/refresh.
+// New clients send the refresh token in an HttpOnly cookie.
 type RefreshReq struct {
-	RefreshToken string `json:"refreshToken" binding:"required"`
+	RefreshToken string `json:"refreshToken"`
 }
 
-// LogoutReq is the body for POST /api/v1/auth/logout.
+// LogoutReq is the optional legacy body for POST /api/v1/auth/logout.
+// New clients send the refresh token in an HttpOnly cookie.
 type LogoutReq struct {
-	RefreshToken string `json:"refreshToken" binding:"required"`
+	RefreshToken string `json:"refreshToken"`
 }
 
 // ChangePasswordReq is the body for POST /api/v1/auth/password.
@@ -42,10 +44,12 @@ type UserDTO struct {
 	CreatedAt          string `json:"createdAt"`
 }
 
-// TokenPair carries the two tokens returned by login/register/refresh.
+// TokenPair carries the access token returned by login/register/refresh.
+// RefreshToken is only populated for legacy JSON-body clients; browser clients
+// receive refresh tokens through an HttpOnly cookie instead.
 type TokenPair struct {
 	AccessToken  string `json:"accessToken"`
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refreshToken,omitempty"`
 	ExpiresIn    int    `json:"expiresIn"` // seconds until accessToken expires
 }
 
