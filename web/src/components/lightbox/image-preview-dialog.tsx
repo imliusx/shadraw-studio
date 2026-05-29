@@ -386,7 +386,7 @@ export function ImagePreviewDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="fixed inset-0 left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 overflow-visible rounded-none border-0 bg-transparent p-0 shadow-none ring-0 duration-0 outline-none sm:max-w-none data-open:animate-none data-open:fade-in-0 data-open:zoom-in-100 data-closed:animate-none data-closed:fade-out-0 data-closed:zoom-out-100"
+        className="fixed inset-0 left-0 top-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 overflow-visible rounded-none border-0 bg-transparent p-0 shadow-none ring-0 duration-0 outline-none before:hidden sm:max-w-none data-open:animate-none data-open:fade-in-0 data-open:zoom-in-100 data-closed:animate-none data-closed:fade-out-0 data-closed:zoom-out-100"
         onPointerDown={(event) => {
           if (event.target === event.currentTarget) {
             handleOpenChange(false)
@@ -463,7 +463,7 @@ export function ImagePreviewDialog({
                 animate="show"
                 exit="exit"
                 className={cn(
-                  "absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-background/95 p-0.5 shadow-sm ring-1 ring-border backdrop-blur",
+                  "absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-popover/70 p-0.5 text-popover-foreground shadow-sm ring-1 ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150",
                   zoom.value > MIN_ZOOM && "bottom-4"
                 )}
                 style={imageToolbarStyle}

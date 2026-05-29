@@ -7,6 +7,27 @@
     <title>shadraw</title>
   </head>
   <body>
+    <script>
+      try {
+        var palette = localStorage.getItem("shadraw-ui:color-theme")
+        var allowed = [
+          "default",
+          "violet",
+          "yellow",
+          "sky",
+          "blue",
+          "red",
+          "lime",
+          "emerald",
+          "pink",
+        ]
+        document.documentElement.dataset.palette = allowed.includes(palette)
+          ? palette
+          : "default"
+      } catch (_) {
+        document.documentElement.dataset.palette = "default"
+      }
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

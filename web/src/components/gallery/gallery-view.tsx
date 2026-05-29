@@ -1066,7 +1066,7 @@ function GalleryCard({
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute right-2 top-2 flex translate-y-[-0.25rem] items-center gap-0.5 rounded-md bg-background/95 p-0.5 opacity-0 shadow-sm ring-1 ring-border backdrop-blur transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
+      <div className="pointer-events-none absolute right-2 top-2 flex translate-y-[-0.25rem] items-center gap-0.5 rounded-md bg-popover/70 p-0.5 text-popover-foreground opacity-0 shadow-sm ring-1 ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150 transition group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100">
         {record.prompt || record.promptPublic === false ? (
           <PromptButton record={record} onCopyPrompt={onCopyPrompt} />
         ) : null}

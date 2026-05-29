@@ -107,7 +107,7 @@ export function LoginForm() {
 
   return (
     <motion.div variants={fadeInUp} initial="hidden" animate="show">
-      <Card className="py-8">
+      <Card className="bg-popover/55 py-8 text-popover-foreground shadow-xl ring-1 ring-foreground/10 backdrop-blur-2xl backdrop-saturate-150">
       <CardHeader className="items-center px-8 text-center">
         <CardTitle className="text-xl font-semibold tracking-tight">账号登录</CardTitle>
         <CardDescription>

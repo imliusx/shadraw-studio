@@ -2,6 +2,7 @@ import { Link } from "react-router"
 
 import { useConfig } from "@/providers/app-state-provider"
 import { BrandLockup } from "@/components/brand-lockup"
+import { ColorThemePicker } from "@/components/color-theme-picker"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 export function AuthShellHeader() {
@@ -23,7 +24,10 @@ export function AuthShellHeader() {
           titleClassName="text-base"
         />
       </Link>
-      <ThemeToggle />
+      <div className="flex items-center gap-2">
+        <ColorThemePicker />
+        <ThemeToggle />
+      </div>
     </header>
   )
 }

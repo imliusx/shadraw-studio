@@ -16,6 +16,7 @@ import { ApiStatusIndicator } from "@/components/api-status-indicator"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BrandLockup } from "@/components/brand-lockup"
 import { Button } from "@/components/ui/button"
+import { ColorThemePicker } from "@/components/color-theme-picker"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -136,6 +137,7 @@ export function AppHeader() {
 
       <div className="flex items-center justify-end gap-2">
         <ApiStatusIndicator />
+        <ColorThemePicker />
         <ThemeToggle />
         {user ? (
           <DropdownMenu>
@@ -143,7 +145,7 @@ export function AppHeader() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="rounded-full p-0"
+                className="rounded-full p-0 transition-colors hover:border-primary/70 hover:bg-primary/10 data-[state=open]:border-primary/70 data-[state=open]:bg-primary/10"
                 aria-label="打开个人中心"
               >
                 <Avatar>
