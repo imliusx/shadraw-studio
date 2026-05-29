@@ -998,7 +998,7 @@ function GalleryCard({
           observer.disconnect()
         }
       },
-      { rootMargin: "600px 0px" }
+      { rootMargin: "200px 0px" }
     )
 
     observer.observe(node)

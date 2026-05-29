@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router"
 import {
   Images,
   LogOut,
+  Menu,
   Palette,
   Settings,
   Shield,
@@ -61,7 +62,42 @@ export function AppHeader() {
       animate="show"
       className="flex h-14 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur"
     >
-      <div className="flex min-w-0 items-center gap-8">
+      <div className="flex min-w-0 items-center gap-2 md:gap-8">
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                aria-label="打开导航"
+              >
+                <Menu />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-[10rem]">
+              {NAV_ITEMS.map((item) => {
+                const active = pathname === item.href
+                const Icon = item.icon
+                return (
+                  <DropdownMenuItem
+                    key={item.href}
+                    asChild
+                    className={
+                      active ? "bg-accent text-accent-foreground" : undefined
+                    }
+                  >
+                    <Link to={item.href}>
+                      <Icon className="size-4" />
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
         <div className="flex min-w-0 items-center gap-2.5">
           <img
             src="/shadraw-logo.svg"
