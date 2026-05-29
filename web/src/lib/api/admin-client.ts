@@ -20,6 +20,14 @@ export type SiteConfigDTO = {
   registrationEnabled: boolean
 }
 
+export type AdminRecordDTO = RecordDTO & {
+  user: {
+    id: string
+    email: string
+    displayName: string
+  }
+}
+
 export type UpdateUpstreamPayload = {
   baseUrl?: string
   apiKey?: string | null // string = set; null = clear; undefined = unchanged
@@ -125,14 +133,14 @@ export const adminApi = {
     userId?: string
     page?: number
     pageSize?: number
-  } = {}): Promise<ApiResponse<{ records: RecordDTO[] }>> {
+  } = {}): Promise<ApiResponse<{ records: AdminRecordDTO[] }>> {
     const sp = new URLSearchParams()
     if (params.status) sp.set("status", params.status)
     if (params.userId) sp.set("userId", params.userId)
     if (params.page) sp.set("page", String(params.page))
     if (params.pageSize) sp.set("pageSize", String(params.pageSize))
     const q = sp.toString()
-    return apiClient.get<{ records: RecordDTO[] }>(
+    return apiClient.get<{ records: AdminRecordDTO[] }>(
       `/api/v1/admin/records${q ? "?" + q : ""}`
     )
   },

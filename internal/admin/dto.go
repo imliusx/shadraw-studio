@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+
+	"github.com/liusx/shadraw/internal/record"
 )
 
 // JSONArray adapts a Go []string to a Postgres JSONB column.
@@ -66,6 +68,19 @@ type AppConfigDTO struct {
 type SiteConfigDTO struct {
 	SiteTitle           string `json:"siteTitle"`
 	RegistrationEnabled bool   `json:"registrationEnabled"`
+}
+
+// RecordUserDTO is the creator shape included in admin record listings.
+type RecordUserDTO struct {
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName"`
+}
+
+// AdminRecordDTO extends the public record shape with its creator.
+type AdminRecordDTO struct {
+	record.RecordDTO
+	User RecordUserDTO `json:"user"`
 }
 
 // UpdateUpstreamReq is the body of PUT /api/v1/admin/upstream-configs.

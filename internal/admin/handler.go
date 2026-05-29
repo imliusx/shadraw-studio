@@ -292,10 +292,21 @@ func (h *Handler) ListRecords(c *gin.Context) {
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}
-	out := make([]record.RecordDTO, len(rows))
+	userIDs := make([]int64, 0, len(rows))
+	seenUserIDs := make(map[int64]struct{}, len(rows))
 	for i := range rows {
-		out[i] = record.ToDTO(&rows[i])
+		if _, ok := seenUserIDs[rows[i].UserID]; ok {
+			continue
+		}
+		seenUserIDs[rows[i].UserID] = struct{}{}
+		userIDs = append(userIDs, rows[i].UserID)
 	}
+	usersByID, err := h.users.FindByIDs(c.Request.Context(), userIDs)
+	if err != nil {
+		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
+		return
+	}
+	out := adminRecordDTOs(rows, usersByID)
 	if pageSize <= 0 {
 		pageSize = 20
 	}
@@ -323,6 +334,24 @@ func (h *Handler) DeleteRecord(c *gin.Context) {
 		return
 	}
 	httpx.OK(c, gin.H{"ok": true})
+}
+
+func adminRecordDTOs(rows []record.Record, usersByID map[int64]user.User) []AdminRecordDTO {
+	out := make([]AdminRecordDTO, len(rows))
+	for i := range rows {
+		userID := rows[i].UserID
+		out[i] = AdminRecordDTO{
+			RecordDTO: record.ToDTO(&rows[i]),
+			User: RecordUserDTO{
+				ID: strconv.FormatInt(userID, 10),
+			},
+		}
+		if u, ok := usersByID[userID]; ok {
+			out[i].User.Email = u.Email
+			out[i].User.DisplayName = u.DisplayName
+		}
+	}
+	return out
 }
 
 // ---- stats ----

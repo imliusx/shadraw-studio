@@ -76,6 +76,25 @@ func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) {
 	return &u, nil
 }
 
+// FindByIDs returns users keyed by id. Missing ids are omitted from the result.
+func (r *Repository) FindByIDs(ctx context.Context, ids []int64) (map[int64]User, error) {
+	if len(ids) == 0 {
+		return map[int64]User{}, nil
+	}
+	var users []User
+	if err := r.db.WithContext(ctx).
+		Select("id", "email", "password_hash", "display_name", "role", "disabled", "must_change_password", "created_at", "updated_at").
+		Where("id IN ?", ids).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[int64]User, len(users))
+	for i := range users {
+		out[users[i].ID] = users[i]
+	}
+	return out, nil
+}
+
 // Create inserts a new user and writes the generated id back to u.
 func (r *Repository) Create(ctx context.Context, u *User) error {
 	return r.db.WithContext(ctx).

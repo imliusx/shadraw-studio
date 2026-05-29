@@ -344,6 +344,38 @@
 
 ---
 
+## GET /admin/records
+
+读取全站生图任务列表。
+
+- 鉴权：Bearer + admin
+- Query：`status`, `userId`, `page`, `pageSize`
+- 200 响应：`{ "data": { "records": [AdminRecordDTO] }, "error": null, "meta": ... }`
+- `AdminRecordDTO` 在 `RecordDTO` 基础上增加生成用户：
+
+```json
+{
+  "id": "42",
+  "prompt": "a cinematic product photo of a red chair",
+  "status": "completed",
+  "user": {
+    "id": "12",
+    "email": "alice@example.com",
+    "displayName": "Alice"
+  }
+}
+```
+
+## DELETE /admin/records/:id
+
+管理员删除任意生图任务。
+
+- 鉴权：Bearer + admin
+- 200 响应：`{ "data": { "ok": true }, "error": null }`
+- 404：记录不存在。
+
+---
+
 ## GET /admin/runtime
 
 读取生成运行时限制。

@@ -3,7 +3,7 @@ import { toast } from "sonner"
 
 import { adminApi } from "@/lib/api/admin-client"
 import { ApiError } from "@/lib/api/client"
-import type { RecordDTO } from "@/lib/api/records-client"
+import type { AdminRecordDTO } from "@/lib/api/admin-client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -17,7 +17,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-const STATUS_VARIANT: Record<RecordDTO["status"], "default" | "secondary" | "outline" | "destructive"> = {
+const STATUS_VARIANT: Record<
+  AdminRecordDTO["status"],
+  "default" | "secondary" | "outline" | "destructive"
+> = {
   completed: "default",
   running: "secondary",
   waiting: "outline",
@@ -25,7 +28,7 @@ const STATUS_VARIANT: Record<RecordDTO["status"], "default" | "secondary" | "out
 }
 
 export function RecordsCard() {
-  const [records, setRecords] = React.useState<RecordDTO[]>([])
+  const [records, setRecords] = React.useState<AdminRecordDTO[]>([])
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
@@ -92,11 +95,12 @@ export function RecordsCard() {
           暂无记录
         </div>
       ) : (
-        <Table>
+        <Table className="min-w-[960px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-16">ID</TableHead>
               <TableHead className="w-24">状态</TableHead>
+              <TableHead className="w-56">生成用户</TableHead>
               <TableHead>提示词</TableHead>
               <TableHead className="w-32">模型</TableHead>
               <TableHead className="w-44">创建时间</TableHead>
@@ -109,6 +113,14 @@ export function RecordsCard() {
                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_VARIANT[r.status]}>{r.status}</Badge>
+                </TableCell>
+                <TableCell className="max-w-56">
+                  <div className="truncate text-sm">
+                    {r.user.displayName || r.user.email || `用户 ${r.user.id}`}
+                  </div>
+                  {r.user.email ? (
+                    <div className="truncate text-xs text-muted-foreground">{r.user.email}</div>
+                  ) : null}
                 </TableCell>
                 <TableCell className="max-w-[420px] truncate" title={r.prompt}>
                   {r.prompt || <span className="text-muted-foreground">(空)</span>}

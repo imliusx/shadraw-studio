@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/liusx/shadraw/internal/httpx"
+	"github.com/liusx/shadraw/internal/record"
+	"github.com/liusx/shadraw/internal/user"
 )
 
 type fakeRuntimeStore struct {
@@ -292,5 +295,56 @@ func TestStore_AppConfig_ReturnsCachedRegistrationEnabled(t *testing.T) {
 	}
 	if len(cfg.EnabledModels) != 1 || cfg.EnabledModels[0] != "gpt-image-2" {
 		t.Fatalf("enabledModels = %+v", cfg.EnabledModels)
+	}
+}
+
+func TestAdminRecordDTOs_IncludesCreator(t *testing.T) {
+	createdAt := time.Date(2026, 5, 29, 10, 30, 0, 0, time.UTC)
+	rows := []record.Record{{
+		ID:           42,
+		UUID:         "3a5f",
+		UserID:       12,
+		Prompt:       "a cinematic product photo of a red chair",
+		Model:        "gpt-image-2",
+		Status:       record.StatusCompleted,
+		PromptPublic: true,
+		CreatedAt:    createdAt,
+	}}
+	usersByID := map[int64]user.User{
+		12: {
+			ID:          12,
+			Email:       "alice@example.com",
+			DisplayName: "Alice",
+		},
+	}
+
+	got := adminRecordDTOs(rows, usersByID)
+
+	if len(got) != 1 {
+		t.Fatalf("len = %d, want 1", len(got))
+	}
+	if got[0].ID != "42" || got[0].Prompt != rows[0].Prompt {
+		t.Fatalf("record fields = %+v, want public record fields preserved", got[0].RecordDTO)
+	}
+	if got[0].User.ID != "12" || got[0].User.Email != "alice@example.com" || got[0].User.DisplayName != "Alice" {
+		t.Fatalf("user = %+v, want creator details", got[0].User)
+	}
+}
+
+func TestAdminRecordDTOs_FallsBackToCreatorID(t *testing.T) {
+	rows := []record.Record{{
+		ID:        43,
+		UserID:    99,
+		Status:    record.StatusWaiting,
+		CreatedAt: time.Date(2026, 5, 29, 10, 30, 0, 0, time.UTC),
+	}}
+
+	got := adminRecordDTOs(rows, nil)
+
+	if got[0].User.ID != "99" {
+		t.Fatalf("user id = %q, want 99", got[0].User.ID)
+	}
+	if got[0].User.Email != "" || got[0].User.DisplayName != "" {
+		t.Fatalf("user = %+v, want only creator id when user lookup misses", got[0].User)
 	}
 }
