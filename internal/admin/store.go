@@ -25,6 +25,7 @@ type UpstreamConfig struct {
 	PerUserWorkerConcurrency int16     `gorm:"column:per_user_worker_concurrency"`
 	PerUserQueueLimit        int16     `gorm:"column:per_user_queue_limit"`
 	SiteTitle                string    `gorm:"column:site_title"`
+	RegistrationEnabled      bool      `gorm:"column:registration_enabled"`
 	UpdatedBy                *int64    `gorm:"column:updated_by"`
 	CreatedAt                time.Time `gorm:"column:created_at"`
 	UpdatedAt                time.Time `gorm:"column:updated_at"`
@@ -60,11 +61,11 @@ func (s *Store) SetResizer(fn func(int)) {
 func (s *Store) Load(ctx context.Context) error {
 	var row UpstreamConfig
 	err := s.db.WithContext(ctx).
-		Select("id", "base_url", "api_key_cipher", "enabled_models", "worker_concurrency", "per_user_worker_concurrency", "per_user_queue_limit", "site_title", "updated_by", "created_at", "updated_at").
+		Select("id", "base_url", "api_key_cipher", "enabled_models", "worker_concurrency", "per_user_worker_concurrency", "per_user_queue_limit", "site_title", "registration_enabled", "updated_by", "created_at", "updated_at").
 		Where("id = 1").Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Seed empty row so admin can fill it in.
-		row = UpstreamConfig{ID: 1, EnabledModels: JSONArray{}, WorkerConcurrency: 4, PerUserWorkerConcurrency: 1, PerUserQueueLimit: 5, SiteTitle: "shadraw"}
+		row = UpstreamConfig{ID: 1, EnabledModels: JSONArray{}, WorkerConcurrency: 4, PerUserWorkerConcurrency: 1, PerUserQueueLimit: 5, SiteTitle: "shadraw", RegistrationEnabled: true}
 		if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 			return err
 		}
@@ -124,8 +125,9 @@ func (s *Store) AppConfig() AppConfigDTO {
 	models := make([]string, 0, len(s.cached.EnabledModels))
 	models = append(models, s.cached.EnabledModels...)
 	return AppConfigDTO{
-		EnabledModels: models,
-		SiteTitle:     siteTitleOrDefault(s.cached.SiteTitle),
+		EnabledModels:       models,
+		SiteTitle:           siteTitleOrDefault(s.cached.SiteTitle),
+		RegistrationEnabled: s.registrationEnabledLocked(),
 	}
 }
 
@@ -236,11 +238,14 @@ func (s *Store) UpdateRuntimeSettings(ctx context.Context, settings RuntimeSetti
 func (s *Store) SiteConfig() SiteConfigDTO {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return SiteConfigDTO{SiteTitle: siteTitleOrDefault(s.cached.SiteTitle)}
+	return SiteConfigDTO{
+		SiteTitle:           siteTitleOrDefault(s.cached.SiteTitle),
+		RegistrationEnabled: s.registrationEnabledLocked(),
+	}
 }
 
 // UpdateSiteConfig persists the site settings.
-func (s *Store) UpdateSiteConfig(ctx context.Context, title string, actorID int64) error {
+func (s *Store) UpdateSiteConfig(ctx context.Context, title string, registrationEnabled bool, actorID int64) error {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		title = "shadraw"
@@ -248,16 +253,25 @@ func (s *Store) UpdateSiteConfig(ctx context.Context, title string, actorID int6
 	if err := s.db.WithContext(ctx).Model(&UpstreamConfig{}).
 		Where("id = 1").
 		Updates(map[string]any{
-			"site_title": title,
-			"updated_by": actorID,
+			"site_title":           title,
+			"registration_enabled": registrationEnabled,
+			"updated_by":           actorID,
 		}).Error; err != nil {
 		return err
 	}
 	s.mu.Lock()
 	s.cached.SiteTitle = title
+	s.cached.RegistrationEnabled = registrationEnabled
 	s.cached.UpdatedBy = &actorID
 	s.mu.Unlock()
 	return nil
+}
+
+// RegistrationEnabled returns whether public self-service registration is open.
+func (s *Store) RegistrationEnabled() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.registrationEnabledLocked()
 }
 
 // View returns the public DTO with apiKey masked.
@@ -286,6 +300,13 @@ func siteTitleOrDefault(title string) string {
 		return "shadraw"
 	}
 	return title
+}
+
+func (s *Store) registrationEnabledLocked() bool {
+	if !s.loaded {
+		return true
+	}
+	return s.cached.RegistrationEnabled
 }
 
 func clampRuntimeLimit(n, fallback int) int {

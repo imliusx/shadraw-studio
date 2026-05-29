@@ -54,6 +54,7 @@ export function LoginForm() {
   const { login, status, error, clearError } = useAuth()
   const { fadeInUp } = useMotionVariants()
   const siteTitle = config.siteTitle.trim() || "shadraw"
+  const registrationEnabled = config.registrationEnabled
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -169,13 +170,19 @@ export function LoginForm() {
                 )}
               </Button>
               <FieldDescription className="text-center">
-                还没有账号？{" "}
-                <Link
-                  to="/register"
-                  className="font-medium text-foreground underline-offset-4 hover:underline"
-                >
-                  立即注册 →
-                </Link>
+                {registrationEnabled ? (
+                  <>
+                    还没有账号？{" "}
+                    <Link
+                      to="/register"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      立即注册 →
+                    </Link>
+                  </>
+                ) : (
+                  "注册已关闭，请联系管理员"
+                )}
               </FieldDescription>
             </Field>
           </FieldGroup>

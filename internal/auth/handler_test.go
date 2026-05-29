@@ -129,8 +129,15 @@ type testRig struct {
 	handler *auth.Handler
 	users   *fakeUsers
 	refresh *fakeRefresh
+	policy  *fakeRegistrationPolicy
 	secret  string
 }
+
+type fakeRegistrationPolicy struct {
+	enabled bool
+}
+
+func (f *fakeRegistrationPolicy) RegistrationEnabled() bool { return f.enabled }
 
 func newRig(t *testing.T) *testRig {
 	t.Helper()
@@ -138,10 +145,11 @@ func newRig(t *testing.T) *testRig {
 	users := newFakeUsers()
 	refresh := newFakeRefresh()
 	secret := "test-secret-of-thirty-two-chars!"
+	policy := &fakeRegistrationPolicy{enabled: true}
 
 	// We need to expose newServiceImpl; provide via test helper in package.
 	svc := auth.NewServiceForTest(users, refresh, secret, time.Now)
-	h := auth.NewHandler(svc)
+	h := auth.NewHandler(svc, policy)
 
 	engine := gin.New()
 	engine.Use(httpx.Recovery())
@@ -159,7 +167,7 @@ func newRig(t *testing.T) *testRig {
 
 	return &testRig{
 		engine: engine, svc: svc, handler: h,
-		users: users, refresh: refresh, secret: secret,
+		users: users, refresh: refresh, policy: policy, secret: secret,
 	}
 }
 
@@ -239,6 +247,32 @@ func TestHandler_Register_409_Duplicate(t *testing.T) {
 	}
 }
 
+func TestHandler_Register_403_WhenRegistrationDisabled(t *testing.T) {
+	r := newRig(t)
+	r.policy.enabled = false
+
+	w := r.do(t, http.MethodPost, "/api/v1/auth/register", auth.RegisterReq{
+		Email: "closed@x.com", Password: "12345678", DisplayName: "u",
+	}, "")
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403, body=%s", w.Code, w.Body.String())
+	}
+	env := decode(t, w.Body.Bytes())
+	if env.Error == nil || env.Error.Code != httpx.CodeForbidden {
+		t.Fatalf("err = %+v", env.Error)
+	}
+	if env.Error.Message != "当前站点已关闭注册，请联系管理员" {
+		t.Fatalf("message = %q", env.Error.Message)
+	}
+	if exists, _ := r.users.EmailExists(context.Background(), "closed@x.com"); exists {
+		t.Fatalf("disabled registration created a user")
+	}
+	if len(r.refresh.rows) != 0 {
+		t.Fatalf("disabled registration issued refresh tokens")
+	}
+}
+
 func TestHandler_Register_422_Validation(t *testing.T) {
 	r := newRig(t)
 	w := r.do(t, http.MethodPost, "/api/v1/auth/register", auth.RegisterReq{
@@ -286,6 +320,20 @@ func TestHandler_Login_403_Disabled(t *testing.T) {
 	env := decode(t, w.Body.Bytes())
 	if env.Error == nil || env.Error.Code != httpx.CodeAccountDisabled {
 		t.Fatalf("err = %+v", env.Error)
+	}
+}
+
+func TestHandler_Login_200_WhenRegistrationDisabled(t *testing.T) {
+	r := newRig(t)
+	_ = registerOK(t, r, "existing@x.com", "12345678")
+	r.policy.enabled = false
+
+	w := r.do(t, http.MethodPost, "/api/v1/auth/login", auth.LoginReq{
+		Email: "existing@x.com", Password: "12345678",
+	}, "")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body=%s", w.Code, w.Body.String())
 	}
 }
 

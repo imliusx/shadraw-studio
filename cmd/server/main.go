@@ -79,13 +79,13 @@ func run() error {
 
 	// services
 	authSvc := auth.NewService(userRepo, refreshRepo, cfg.JWTSecret, time.Now)
-	authHandler := auth.NewHandler(authSvc)
 
 	upstreamCli := upstream.NewClient()
 	adminStore := admin.NewStore(db.DB, cipher)
 	if err := adminStore.Load(rootCtx); err != nil {
 		return fmt.Errorf("load upstream config: %w", err)
 	}
+	authHandler := auth.NewHandler(authSvc, adminStore)
 
 	recordHandler := record.NewHandler(recordRepo, projectRepo, blobStore, adminStore)
 

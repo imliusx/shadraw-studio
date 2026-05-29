@@ -56,6 +56,7 @@ export type Config = {
   apiKey: string
   model: string
   siteTitle: string
+  registrationEnabled: boolean
 }
 
 // 保留 baseUrl / apiKey 字段是为了向后兼容；新代码只读 model，

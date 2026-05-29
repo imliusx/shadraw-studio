@@ -4,6 +4,7 @@ import { motion } from "motion/react"
 import { CircleAlert } from "lucide-react"
 import { toast } from "sonner"
 
+import { useConfig } from "@/providers/app-state-provider"
 import { useAuth } from "@/providers/auth-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -71,8 +72,10 @@ function runValidation(values: Values): FieldErrors {
 
 export function RegisterForm() {
   const navigate = useNavigate()
+  const { config } = useConfig()
   const { register, status, error, clearError } = useAuth()
   const { fadeInUp } = useMotionVariants()
+  const registrationEnabled = config.registrationEnabled
 
   const [values, setValues] = useState<Values>({
     displayName: "",
@@ -114,6 +117,7 @@ export function RegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!registrationEnabled) return
     const next = runValidation(values)
     setErrors(next)
     setTouched({
@@ -145,9 +149,26 @@ export function RegisterForm() {
       <Card className="py-8">
       <CardHeader className="items-center px-8 text-center">
         <CardTitle className="text-xl font-semibold tracking-tight">账号注册</CardTitle>
-        <CardDescription>开始你的 AI 生图之旅</CardDescription>
+        <CardDescription>
+          {registrationEnabled
+            ? "开始你的 AI 生图之旅"
+            : "当前站点已关闭注册"}
+        </CardDescription>
       </CardHeader>
       <CardContent className="px-8">
+        {!registrationEnabled ? (
+          <FieldGroup>
+            <Alert>
+              <CircleAlert />
+              <AlertDescription>
+                当前站点已关闭注册，请联系管理员。
+              </AlertDescription>
+            </Alert>
+            <Button asChild>
+              <Link to="/login">返回登录</Link>
+            </Button>
+          </FieldGroup>
+        ) : (
         <form onSubmit={handleSubmit} noValidate>
           <FieldGroup>
             {error ? (
@@ -273,6 +294,7 @@ export function RegisterForm() {
             </Field>
           </FieldGroup>
         </form>
+        )}
       </CardContent>
     </Card>
     </motion.div>

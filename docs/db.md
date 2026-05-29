@@ -141,6 +141,17 @@ ALTER TABLE upstream_configs
 |---|---|
 | `site_title` | 管理员配置的网站标题；用于前端浏览器标题、顶部品牌和登录页品牌文案 |
 
+## 017_registration_enabled
+
+```sql
+ALTER TABLE upstream_configs
+    ADD COLUMN registration_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+```
+
+| 列 | 说明 |
+|---|---|
+| `registration_enabled` | 管理员配置的公开注册开关；默认 true 以保持既有自助注册行为 |
+
 ## 迁移规则
 
 - 工具：`golang-migrate/migrate v4`，文件名 `NNN_short_name.up.sql` / `.down.sql`。

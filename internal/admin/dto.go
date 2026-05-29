@@ -57,13 +57,15 @@ type RuntimeSettingsDTO struct {
 
 // AppConfigDTO is the public app config used by the front-end before and after login.
 type AppConfigDTO struct {
-	EnabledModels []string `json:"enabledModels"`
-	SiteTitle     string   `json:"siteTitle"`
+	EnabledModels       []string `json:"enabledModels"`
+	SiteTitle           string   `json:"siteTitle"`
+	RegistrationEnabled bool     `json:"registrationEnabled"`
 }
 
 // SiteConfigDTO is the admin-editable site settings shape.
 type SiteConfigDTO struct {
-	SiteTitle string `json:"siteTitle"`
+	SiteTitle           string `json:"siteTitle"`
+	RegistrationEnabled bool   `json:"registrationEnabled"`
 }
 
 // UpdateUpstreamReq is the body of PUT /api/v1/admin/upstream-configs.
@@ -75,7 +77,8 @@ type UpdateUpstreamReq struct {
 
 // UpdateSiteReq is the body of PATCH /api/v1/admin/site-settings.
 type UpdateSiteReq struct {
-	SiteTitle string `json:"siteTitle" binding:"required,min=1,max=64"`
+	SiteTitle           string `json:"siteTitle" binding:"required,min=1,max=64"`
+	RegistrationEnabled *bool  `json:"registrationEnabled,omitempty"`
 }
 
 // UpdateRuntimeReq is the body of PATCH /api/v1/admin/runtime.

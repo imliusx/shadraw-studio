@@ -72,6 +72,18 @@
 { "data": null, "error": { "code": "conflict", "message": "邮箱已被注册" } }
 ```
 
+- 403（站点关闭注册）：
+
+```json
+{
+  "data": null,
+  "error": {
+    "code": "forbidden",
+    "message": "当前站点已关闭注册，请联系管理员"
+  }
+}
+```
+
 - 422（校验失败）：
 
 ```json
@@ -192,7 +204,8 @@
 {
   "data": {
     "enabledModels": ["gpt-image-2"],
-    "siteTitle": "shadraw"
+    "siteTitle": "shadraw",
+    "registrationEnabled": true
   },
   "error": null
 }
@@ -388,7 +401,8 @@
 {
   "data": {
     "config": {
-      "siteTitle": "shadraw"
+      "siteTitle": "shadraw",
+      "registrationEnabled": true
     }
   },
   "error": null
@@ -397,13 +411,13 @@
 
 ## PATCH /admin/site-settings
 
-更新站点标题。
+更新站点标题和公开注册开关。
 
 - 鉴权：Bearer + admin
 - 请求体：
 
 ```json
-{ "siteTitle": "我的生图站" }
+{ "siteTitle": "我的生图站", "registrationEnabled": false }
 ```
 
 - 200 响应：同 `GET /admin/site-settings`

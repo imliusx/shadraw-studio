@@ -17,6 +17,7 @@ export type UpstreamConfigDTO = RuntimeSettingsDTO & {
 
 export type SiteConfigDTO = {
   siteTitle: string
+  registrationEnabled: boolean
 }
 
 export type UpdateUpstreamPayload = {

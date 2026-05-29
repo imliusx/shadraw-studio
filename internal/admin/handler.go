@@ -22,10 +22,17 @@ type runtimeStore interface {
 	UpdateRuntimeSettings(ctx context.Context, settings RuntimeSettingsDTO, actorID int64) error
 }
 
+type siteStore interface {
+	SiteConfig() SiteConfigDTO
+	RegistrationEnabled() bool
+	UpdateSiteConfig(ctx context.Context, title string, registrationEnabled bool, actorID int64) error
+}
+
 // Handler bundles admin endpoints.
 type Handler struct {
 	store        *Store
 	runtimeStore runtimeStore
+	siteStore    siteStore
 	users        *user.Repository
 	records      *record.Repository
 	upstreamCl   *upstream.Client
@@ -38,7 +45,7 @@ type AuthService interface {
 }
 
 func NewHandler(store *Store, users *user.Repository, records *record.Repository, upstreamCl *upstream.Client, authSvc AuthService) *Handler {
-	return &Handler{store: store, runtimeStore: store, users: users, records: records, upstreamCl: upstreamCl, auth: authSvc}
+	return &Handler{store: store, runtimeStore: store, siteStore: store, users: users, records: records, upstreamCl: upstreamCl, auth: authSvc}
 }
 
 // ---- upstream config ----
@@ -175,7 +182,7 @@ func (h *Handler) UpdateRuntime(c *gin.Context) {
 // ---- site settings ----
 
 func (h *Handler) GetSite(c *gin.Context) {
-	httpx.OK(c, gin.H{"config": h.store.SiteConfig()})
+	httpx.OK(c, gin.H{"config": h.siteStore.SiteConfig()})
 }
 
 func (h *Handler) UpdateSite(c *gin.Context) {
@@ -184,11 +191,15 @@ func (h *Handler) UpdateSite(c *gin.Context) {
 		return
 	}
 	actorID, _ := strconv.ParseInt(httpx.UserIDFrom(c), 10, 64)
-	if err := h.store.UpdateSiteConfig(c.Request.Context(), req.SiteTitle, actorID); err != nil {
+	registrationEnabled := h.siteStore.RegistrationEnabled()
+	if req.RegistrationEnabled != nil {
+		registrationEnabled = *req.RegistrationEnabled
+	}
+	if err := h.siteStore.UpdateSiteConfig(c.Request.Context(), req.SiteTitle, registrationEnabled, actorID); err != nil {
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}
-	httpx.OK(c, gin.H{"config": h.store.SiteConfig()})
+	httpx.OK(c, gin.H{"config": h.siteStore.SiteConfig()})
 }
 
 // ---- users ----

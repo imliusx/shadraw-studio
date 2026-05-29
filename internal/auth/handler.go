@@ -13,10 +13,21 @@ import (
 
 // Handler bundles the auth HTTP endpoints.
 type Handler struct {
-	svc *Service
+	svc                *Service
+	registrationPolicy registrationPolicyReader
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+type registrationPolicyReader interface {
+	RegistrationEnabled() bool
+}
+
+func NewHandler(svc *Service, registrationPolicy ...registrationPolicyReader) *Handler {
+	h := &Handler{svc: svc}
+	if len(registrationPolicy) > 0 {
+		h.registrationPolicy = registrationPolicy[0]
+	}
+	return h
+}
 
 // Exported handlers — main wires each route individually so it can attach
 // per-route middleware (rate limit, require auth) as the spec dictates.
@@ -30,6 +41,10 @@ func (h *Handler) ChangePasswordEndpoint(c *gin.Context) { h.changePassword(c) }
 func (h *Handler) register(c *gin.Context) {
 	var req RegisterReq
 	if !httpx.BindJSON(c, &req) {
+		return
+	}
+	if h.registrationPolicy != nil && !h.registrationPolicy.RegistrationEnabled() {
+		httpx.Fail(c, http.StatusForbidden, httpx.CodeForbidden, "当前站点已关闭注册，请联系管理员")
 		return
 	}
 	resp, err := h.svc.Register(c.Request.Context(), req)

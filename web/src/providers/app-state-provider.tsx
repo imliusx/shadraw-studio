@@ -66,6 +66,7 @@ const DEFAULT_CONFIG: Config = {
   apiKey: "",
   model: "",
   siteTitle: "shadraw",
+  registrationEnabled: true,
 }
 
 type AppState = {
@@ -339,6 +340,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const applyAppConfig = useCallback((cfg: {
     enabledModels: string[]
     siteTitle: string
+    registrationEnabled: boolean
   }) => {
     const pickModel = (models: string[], currentModel: string): string => {
       if (models.length === 0) return ""
@@ -354,6 +356,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ...currentConfig,
           model: pickModel(cfg.enabledModels, currentConfig.model),
           siteTitle: cfg.siteTitle,
+          registrationEnabled: cfg.registrationEnabled,
         },
         enabledModels: cfg.enabledModels,
       },
@@ -403,6 +406,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         config: {
           ...DEFAULT_CONFIG,
           siteTitle: stateRef.current.config.siteTitle,
+          registrationEnabled: stateRef.current.config.registrationEnabled,
         },
         enabledModels: [],
       },
