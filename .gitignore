@@ -72,6 +72,7 @@ yarn-error.log*
 .claude/
 .trellis/
 .agents/
+.codex/
 AGENTS.md
 skills-lock.json
 CLAUDE.md
