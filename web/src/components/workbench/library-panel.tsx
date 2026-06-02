@@ -2,7 +2,6 @@ import * as React from "react"
 import { toast } from "sonner"
 import { AnimatePresence, motion } from "motion/react"
 import {
-  Archive,
   Check,
   CircleX,
   Clock3,
@@ -102,7 +101,7 @@ export function LibraryPanel({
   const { projects, addProject, renameProject, deleteProject } = useProjects()
   const [activeHistoryId, setActiveHistoryId] = useActiveHistory()
   const { retry } = useGenerate()
-  const { listContainer, listItem, slideInLeft } = useMotionVariants()
+  const { listContainer, slideInLeft } = useMotionVariants()
   const viewportRef = React.useRef<HTMLDivElement>(null)
 
   const [tab, setTab] = React.useState<LibraryTab>("history")
@@ -661,7 +660,7 @@ function HistoryCard({
         <>
           <button
             type="button"
-            className="row-span-2 self-start rounded-lg focus-visible:outline-none"
+            className="row-span-2 flex items-start justify-start rounded-lg focus-visible:outline-none"
             onClick={() => onSelect(record)}
             aria-label="选择历史记录"
           >
@@ -733,7 +732,7 @@ function HistoryCardSkeleton({
     <>
       <button
         type="button"
-        className="row-span-2 self-start rounded-lg focus-visible:outline-none"
+        className="row-span-2 flex items-start justify-start rounded-lg focus-visible:outline-none"
         onClick={() => onSelect(record)}
         aria-label="选择历史记录"
       >

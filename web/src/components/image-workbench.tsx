@@ -98,7 +98,7 @@ export function ImageWorkbench() {
 
   return (
     <main className="relative h-[calc(100vh-3.5rem)] overflow-hidden bg-background text-foreground">
-      <div className="flex h-12 items-center justify-between border-b px-4 xl:hidden">
+      <div className="fixed inset-x-0 top-14 z-30 flex h-12 items-center justify-between border-b bg-background/95 px-4 backdrop-blur xl:hidden">
         <Sheet>
           <SheetTrigger asChild>
             <Button
@@ -146,7 +146,7 @@ export function ImageWorkbench() {
         </Sheet>
       </div>
 
-      <div className="h-[calc(100%-3rem)] xl:hidden">
+      <div className="h-[calc(100%-3rem)] pt-12 xl:hidden">
         <PreviewStage
           setPrompt={setPrompt}
           setImageParams={applyImageParams}

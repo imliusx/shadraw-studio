@@ -14,7 +14,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   Field,
   FieldContent,
-  FieldDescription,
   FieldLabel,
 } from "@/components/ui/field"
 import type { HistoryRecord } from "@/components/workbench/types"
@@ -72,7 +71,6 @@ function PublishConfirmContent({
         />
         <FieldContent>
           <FieldLabel htmlFor="publish-prompt">同时公开提示词</FieldLabel>
-          
         </FieldContent>
       </Field>
       <AlertDialogFooter>

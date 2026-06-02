@@ -5,7 +5,6 @@ import { motion } from "motion/react"
 import { MasonryPhotoAlbum, type Photo } from "react-photo-album"
 import {
   Archive,
-  Copy,
   Download,
   FileText,
   FolderInput,

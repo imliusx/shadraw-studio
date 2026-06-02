@@ -51,4 +51,14 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: [
+      "src/components/ui/**/*.{ts,tsx}",
+      "src/providers/**/*.{ts,tsx}",
+      "src/components/workbench/reference-image-uploader.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
 )

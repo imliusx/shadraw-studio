@@ -63,7 +63,7 @@ export function AppHeader() {
       variants={slideInDown}
       initial="hidden"
       animate="show"
-      className="flex h-14 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur"
+      className="fixed inset-x-0 top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b bg-background/95 px-4 backdrop-blur"
     >
       <div className="flex min-w-0 items-center gap-2 md:gap-8">
         <div className="md:hidden">
@@ -78,7 +78,10 @@ export function AppHeader() {
                 <Menu />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-[10rem]">
+            <DropdownMenuContent
+              align="start"
+              className="flex min-w-[10rem] flex-col gap-1"
+            >
               {NAV_ITEMS.map((item) => {
                 const active = pathname === item.href
                 const Icon = item.icon

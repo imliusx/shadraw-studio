@@ -40,7 +40,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { RecordDetailsPopover } from "@/components/workbench/record-details-popover"
-import { useMotionVariants } from "@/lib/motion"
 import type { HistoryRecord, ImageParams } from "@/components/workbench/types"
 import { cn } from "@/lib/utils"
 
