@@ -32,6 +32,7 @@ rsync -avz --progress \
   deploy/shadraw-api.service \
   deploy/.env.prod.example \
   deploy/data-restore.sh \
+  deploy/stop.sh \
   "${TARGET}:${REMOTE_PATH}/"
 
 cat <<EOF

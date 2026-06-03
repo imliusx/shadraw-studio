@@ -25,6 +25,7 @@ host nginx (TLS, 80/443)
 | `shadraw-api.service` | systemd 服务单元 |
 | `.env.prod.example` | VPS `.env` 模板 |
 | `data-export.sh` / `data-restore.sh` | 本地数据导出和 VPS 数据恢复 |
+| `stop.sh` | VPS 上停服：停 API，可选连依赖容器一起停（保留数据） |
 
 ## 首次部署
 
@@ -58,6 +59,7 @@ bin/server-linux-amd64
 - `deploy/shadraw-api.service`
 - `deploy/.env.prod.example`
 - `deploy/data-restore.sh`
+- `deploy/stop.sh`
 
 ### 3. VPS 配置 `.env`
 
@@ -185,9 +187,18 @@ sudo journalctl -u shadraw-api -f
 
 # VPS: 重启 API
 sudo systemctl restart shadraw-api
+
+# VPS: 停服（临时下线，依赖容器保留）
+./stop.sh
+
+# VPS: 连 Postgres + MinIO 一起停（保留数据卷）
+./stop.sh --deps
+
+# VPS: 只看当前状态，不做任何改动
+./stop.sh --status
 ```
 
-卸载和清理步骤见 [`uninstall.md`](./uninstall.md)。
+停服只是临时下线；彻底卸载和删数据步骤见 [`uninstall.md`](./uninstall.md)。
 
 ## 故障排查
 
