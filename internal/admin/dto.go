@@ -70,6 +70,18 @@ type SiteConfigDTO struct {
 	RegistrationEnabled bool   `json:"registrationEnabled"`
 }
 
+// AdminUserDTO extends the public auth user shape with admin-only fields.
+type AdminUserDTO struct {
+	ID                 string `json:"id"`
+	Email              string `json:"email"`
+	DisplayName        string `json:"displayName"`
+	AvatarURL          string `json:"avatarUrl,omitempty"`
+	Role               string `json:"role"`
+	MustChangePassword bool   `json:"mustChangePassword"`
+	Disabled           bool   `json:"disabled"`
+	CreatedAt          string `json:"createdAt"`
+}
+
 // RecordUserDTO is the creator shape included in admin record listings.
 type RecordUserDTO struct {
 	ID          string `json:"id"`

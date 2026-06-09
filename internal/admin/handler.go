@@ -216,9 +216,9 @@ func (h *Handler) ListUsers(c *gin.Context) {
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}
-	out := make([]auth.UserDTO, len(users))
+	out := make([]AdminUserDTO, len(users))
 	for i := range users {
-		out[i] = auth.ToUserDTO(&users[i])
+		out[i] = toAdminUserDTO(&users[i])
 	}
 	if pageSize <= 0 {
 		pageSize = 20
@@ -258,7 +258,7 @@ func (h *Handler) UpdateUser(c *gin.Context) {
 		h.handleUserErr(c, err)
 		return
 	}
-	httpx.OK(c, gin.H{"user": auth.ToUserDTO(u)})
+	httpx.OK(c, gin.H{"user": toAdminUserDTO(u)})
 }
 
 func (h *Handler) ResetPassword(c *gin.Context) {
@@ -272,6 +272,20 @@ func (h *Handler) ResetPassword(c *gin.Context) {
 		return
 	}
 	httpx.OK(c, gin.H{"tempPassword": tmp})
+}
+
+func toAdminUserDTO(u *user.User) AdminUserDTO {
+	public := auth.ToUserDTO(u)
+	return AdminUserDTO{
+		ID:                 public.ID,
+		Email:              public.Email,
+		DisplayName:        public.DisplayName,
+		AvatarURL:          public.AvatarURL,
+		Role:               public.Role,
+		MustChangePassword: public.MustChangePassword,
+		Disabled:           u.Disabled,
+		CreatedAt:          public.CreatedAt,
+	}
 }
 
 // ---- records ----

@@ -28,6 +28,10 @@ export type AdminRecordDTO = RecordDTO & {
   }
 }
 
+export type AdminUserDTO = AuthUser & {
+  disabled: boolean
+}
+
 export type UpdateUpstreamPayload = {
   baseUrl?: string
   apiKey?: string | null // string = set; null = clear; undefined = unchanged
@@ -101,21 +105,21 @@ export const adminApi = {
     search?: string
     page?: number
     pageSize?: number
-  } = {}): Promise<ApiResponse<{ users: AuthUser[] }>> {
+  } = {}): Promise<ApiResponse<{ users: AdminUserDTO[] }>> {
     const sp = new URLSearchParams()
     if (params.search) sp.set("search", params.search)
     if (params.page) sp.set("page", String(params.page))
     if (params.pageSize) sp.set("pageSize", String(params.pageSize))
     const q = sp.toString()
-    return apiClient.get<{ users: AuthUser[] }>(
+    return apiClient.get<{ users: AdminUserDTO[] }>(
       `/api/v1/admin/users${q ? "?" + q : ""}`
     )
   },
   async updateUser(
     id: string,
     patch: { disabled?: boolean; role?: "admin" | "user" }
-  ): Promise<AuthUser> {
-    const { data } = await apiClient.patch<{ user: AuthUser }>(
+  ): Promise<AdminUserDTO> {
+    const { data } = await apiClient.patch<{ user: AdminUserDTO }>(
       `/api/v1/admin/users/${id}`,
       patch
     )

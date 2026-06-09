@@ -348,3 +348,27 @@ func TestAdminRecordDTOs_FallsBackToCreatorID(t *testing.T) {
 		t.Fatalf("user = %+v, want only creator id when user lookup misses", got[0].User)
 	}
 }
+
+func TestToAdminUserDTO_IncludesDisabled(t *testing.T) {
+	u := &user.User{
+		ID:                 12,
+		Email:              "alice@example.com",
+		DisplayName:        "Alice",
+		Role:               user.RoleUser,
+		MustChangePassword: true,
+		Disabled:           true,
+		CreatedAt:          time.Date(2026, 5, 29, 10, 30, 0, 0, time.UTC),
+	}
+
+	got := toAdminUserDTO(u)
+
+	if got.ID != "12" || got.Email != "alice@example.com" || got.DisplayName != "Alice" {
+		t.Fatalf("public fields = %+v, want user fields preserved", got)
+	}
+	if !got.Disabled {
+		t.Fatalf("disabled = false, want true")
+	}
+	if !got.MustChangePassword {
+		t.Fatalf("mustChangePassword = false, want true")
+	}
+}
