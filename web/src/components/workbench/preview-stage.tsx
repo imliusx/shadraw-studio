@@ -22,18 +22,13 @@ import {
 } from "@/providers/app-state-provider"
 import { toUserFacingErrorMessage } from "@/lib/api/errors"
 import { Button } from "@/components/ui/button"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Spinner } from "@/components/ui/spinner"
 import {
   PublishConfirmDialog,
   type PublishOptions,
 } from "@/components/gallery/publish-confirm-dialog"
+import { UpstreamErrorAccordion } from "@/components/upstream-error-accordion"
 import {
   Tooltip,
   TooltipContent,
@@ -342,25 +337,10 @@ function FailedState({
       <CircleAlert className="size-5 text-destructive" />
       <p className="text-sm font-medium">{errorText}</p>
       {record.upstreamError ? (
-        <Collapsible className="w-full rounded-md border bg-background/60 text-left">
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-xs text-muted-foreground"
-            >
-              查看上游返回详情
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <ScrollArea className="max-h-28 border-t">
-              <pre className="whitespace-pre-wrap break-words p-3 text-xs text-muted-foreground">
-                {record.upstreamError}
-              </pre>
-            </ScrollArea>
-          </CollapsibleContent>
-        </Collapsible>
+        <UpstreamErrorAccordion
+          error={record.upstreamError}
+          scrollAreaClassName="max-h-28"
+        />
       ) : null}
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button size="sm" className="hover:bg-primary/80" onClick={onRetry}>

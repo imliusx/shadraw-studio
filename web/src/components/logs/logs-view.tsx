@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { UpstreamErrorAccordion } from "@/components/upstream-error-accordion"
 import { usePagedRecords } from "@/components/use-paged-records"
 import { toUserFacingErrorMessage } from "@/lib/api/errors"
 import { useMotionVariants } from "@/lib/motion"
@@ -217,25 +218,28 @@ function LogRow({
       <div className="text-xs tabular-nums text-muted-foreground">
         {duration}
       </div>
-      <div className="truncate">
+      <div className="min-w-0">
         {record.error ? (
-          <Tooltip delayDuration={200}>
-            <TooltipTrigger asChild>
-              <span className="truncate text-xs">
+          <div className="flex min-w-0 flex-col gap-1">
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <span className="truncate text-xs">
+                  {toUserFacingErrorMessage(record.error)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[56ch] whitespace-pre-wrap">
                 {toUserFacingErrorMessage(record.error)}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-[56ch] whitespace-pre-wrap">
-              <div className="flex flex-col gap-2">
-                <span>{toUserFacingErrorMessage(record.error)}</span>
-                {record.upstreamError ? (
-                  <span className="border-t pt-2 text-muted-foreground">
-                    上游返回：{record.upstreamError}
-                  </span>
-                ) : null}
-              </div>
-            </TooltipContent>
-          </Tooltip>
+              </TooltipContent>
+            </Tooltip>
+            {record.upstreamError ? (
+              <UpstreamErrorAccordion
+                error={record.upstreamError}
+                className="bg-background"
+                scrollAreaClassName="max-h-36"
+                stopPropagation
+              />
+            ) : null}
+          </div>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
