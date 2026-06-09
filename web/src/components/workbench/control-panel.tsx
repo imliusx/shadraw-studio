@@ -19,7 +19,6 @@ import {
 } from "@/providers/app-state-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ButtonGroup } from "@/components/ui/button-group"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +51,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useMotionVariants } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 import {
@@ -728,23 +728,31 @@ function RatioSizeButtonField({
       <FieldLabel className="text-xs text-muted-foreground">
         图片比例
       </FieldLabel>
-      <div className="grid grid-cols-6 gap-1 overflow-hidden">
+      <ToggleGroup
+        type="single"
+        value={ratio}
+        onValueChange={(value) => {
+          const nextRatio = imageRatioOptions.find(
+            (option) => option.label === value
+          )?.label
+          if (!nextRatio) return
+          setRatio(nextRatio)
+          updateImageParams({ size: imageRatioToSize(nextRatio) })
+        }}
+        className="grid w-full grid-cols-6 gap-1"
+      >
         {imageRatioOptions.map((option) => (
-          <Button
+          <ToggleGroupItem
             key={option.label}
-            type="button"
-            variant={ratio === option.label ? "default" : "outline"}
-            className="h-11 min-w-0 flex-col gap-0.5 rounded-md px-0 text-[10px]"
-            onClick={() => {
-              setRatio(option.label)
-              updateImageParams({ size: imageRatioToSize(option.label) })
-            }}
+            value={option.label}
+            variant="outline"
+            className="h-11 min-w-0 flex-col gap-0.5 rounded-md px-0 text-[10px] data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
           >
             <RatioIcon ratio={option.label} active={ratio === option.label} />
             <span>{option.label}</span>
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
     </Field>
   )
 }
@@ -789,19 +797,28 @@ function ImageQualityButtonField({
       <FieldLabel className="text-xs text-muted-foreground">
         图片质量
       </FieldLabel>
-      <ButtonGroup className="w-full">
+      <ToggleGroup
+        type="single"
+        value={quality}
+        onValueChange={(value) => {
+          if (qualityOptions.includes(value as ImageQuality)) {
+            updateImageParams({ quality: value as ImageQuality })
+          }
+        }}
+        variant="outline"
+        className="w-full"
+        spacing={0}
+      >
         {qualityOptions.map((option) => (
-          <Button
+          <ToggleGroupItem
             key={option}
-            type="button"
-            variant={quality === option ? "default" : "outline"}
-            className="flex-1"
-            onClick={() => updateImageParams({ quality: option })}
+            value={option}
+            className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
           >
             {QUALITY_LABELS[option]}
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </ButtonGroup>
+      </ToggleGroup>
     </Field>
   )
 }
@@ -986,20 +1003,29 @@ function ButtonParameterField({
       <FieldLabel className="text-xs text-muted-foreground">
         {definition.label}
       </FieldLabel>
-      <ButtonGroup className="w-full">
+      <ToggleGroup
+        type="single"
+        value={value}
+        onValueChange={(nextValue) => {
+          if (definition.options.some((option) => option.value === nextValue)) {
+            onValueChange(nextValue)
+          }
+        }}
+        variant="outline"
+        className="w-full"
+        spacing={0}
+      >
         {definition.options.map((option) => (
-          <Button
+          <ToggleGroupItem
             key={option.value}
-            type="button"
-            variant={value === option.value ? "default" : "outline"}
-            className="min-w-0 flex-1 px-2 text-xs"
+            value={option.value}
+            className="min-w-0 flex-1 px-2 text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
             title={option.label}
-            onClick={() => onValueChange(option.value)}
           >
             {option.shortLabel ?? option.label}
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </ButtonGroup>
+      </ToggleGroup>
     </Field>
   )
 }
