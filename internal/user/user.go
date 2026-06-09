@@ -24,6 +24,7 @@ type User struct {
 	Email              string    `gorm:"column:email"`
 	PasswordHash       string    `gorm:"column:password_hash"`
 	DisplayName        string    `gorm:"column:display_name"`
+	AvatarPath         *string   `gorm:"column:avatar_path"`
 	Role               Role      `gorm:"column:role"`
 	Disabled           bool      `gorm:"column:disabled"`
 	MustChangePassword bool      `gorm:"column:must_change_password"`
@@ -48,7 +49,7 @@ func NewRepository(db *gorm.DB) *Repository { return &Repository{db: db} }
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := r.db.WithContext(ctx).
-		Select("id", "email", "password_hash", "display_name", "role", "disabled", "must_change_password", "created_at", "updated_at").
+		Select(userColumns).
 		Where("email = ?", email).
 		Take(&u).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -64,7 +65,7 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, erro
 func (r *Repository) FindByID(ctx context.Context, id int64) (*User, error) {
 	var u User
 	err := r.db.WithContext(ctx).
-		Select("id", "email", "password_hash", "display_name", "role", "disabled", "must_change_password", "created_at", "updated_at").
+		Select(userColumns).
 		Where("id = ?", id).
 		Take(&u).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -83,7 +84,7 @@ func (r *Repository) FindByIDs(ctx context.Context, ids []int64) (map[int64]User
 	}
 	var users []User
 	if err := r.db.WithContext(ctx).
-		Select("id", "email", "password_hash", "display_name", "role", "disabled", "must_change_password", "created_at", "updated_at").
+		Select(userColumns).
 		Where("id IN ?", ids).
 		Find(&users).Error; err != nil {
 		return nil, err
@@ -157,7 +158,7 @@ func (r *Repository) AdminList(ctx context.Context, p AdminListParams) ([]User, 
 		p.PageSize = 20
 	}
 	var out []User
-	err := q.Select("id", "email", "password_hash", "display_name", "role", "disabled", "must_change_password", "created_at", "updated_at").
+	err := q.Select(userColumns).
 		Order("id DESC").
 		Offset((p.Page - 1) * p.PageSize).
 		Limit(p.PageSize).
@@ -172,4 +173,43 @@ func (r *Repository) EmailExists(ctx context.Context, email string) (bool, error
 		Where("email = ?", email).
 		Count(&n).Error
 	return n > 0, err
+}
+
+var userColumns = []string{
+	"id", "email", "password_hash", "display_name", "avatar_path", "role",
+	"disabled", "must_change_password", "created_at", "updated_at",
+}
+
+// UpdateProfile updates a user's editable account fields.
+func (r *Repository) UpdateProfile(ctx context.Context, id int64, displayName string) error {
+	res := r.db.WithContext(ctx).Model(&User{}).
+		Where("id = ?", id).
+		Update("display_name", displayName)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpdateAvatarPath updates the user's avatar blob path. nil clears it.
+func (r *Repository) UpdateAvatarPath(ctx context.Context, id int64, avatarPath *string) error {
+	value := any(nil)
+	if avatarPath == nil {
+		value = gorm.Expr("NULL")
+	} else {
+		value = *avatarPath
+	}
+	res := r.db.WithContext(ctx).Model(&User{}).
+		Where("id = ?", id).
+		Update("avatar_path", value)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

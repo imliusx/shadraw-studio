@@ -33,12 +33,18 @@ type ChangePasswordReq struct {
 	NewPassword string `json:"newPassword" binding:"required,min=8,max=128"`
 }
 
+// UpdateProfileReq is the body for PATCH /api/v1/auth/profile.
+type UpdateProfileReq struct {
+	DisplayName string `json:"displayName" binding:"required,min=1,max=32"`
+}
+
 // UserDTO is the canonical user shape returned to clients. id is a string
 // (see API spec §10.5) to avoid JS Number precision loss.
 type UserDTO struct {
 	ID                 string `json:"id"`
 	Email              string `json:"email"`
 	DisplayName        string `json:"displayName"`
+	AvatarURL          string `json:"avatarUrl,omitempty"`
 	Role               string `json:"role"`
 	MustChangePassword bool   `json:"mustChangePassword"`
 	CreatedAt          string `json:"createdAt"`

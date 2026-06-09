@@ -12,8 +12,10 @@ import {
   AuthError,
   authApi,
   type AuthUser as ApiAuthUser,
+  type ChangePasswordPayload,
   type LoginPayload,
   type RegisterPayload,
+  type UpdateProfilePayload,
 } from "@/lib/api/auth-client"
 
 export type AuthUser = {
@@ -21,6 +23,7 @@ export type AuthUser = {
   displayName: string
   email: string
   avatarSeed: string
+  avatarUrl?: string
   role: "admin" | "user"
 }
 
@@ -37,6 +40,10 @@ type AuthContextValue = {
   login: (input: LoginInput) => Promise<boolean>
   register: (input: RegisterInput) => Promise<boolean>
   logout: () => Promise<void>
+  updateProfile: (input: UpdateProfilePayload) => Promise<AuthUser>
+  uploadAvatar: (file: File) => Promise<AuthUser>
+  deleteAvatar: () => Promise<AuthUser>
+  changePassword: (input: ChangePasswordPayload) => Promise<void>
   clearError: () => void
 }
 
@@ -44,11 +51,15 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 function toUser(api: ApiAuthUser): AuthUser {
   const localPart = api.email.split("@")[0] || api.email
+  const avatarUrl = api.avatarUrl
+    ? `${api.avatarUrl}${api.avatarUrl.includes("?") ? "&" : "?"}v=${Date.now()}`
+    : undefined
   return {
     id: api.id,
     email: api.email,
     displayName: api.displayName || localPart,
     avatarSeed: api.displayName || localPart,
+    avatarUrl,
     role: api.role === "admin" ? "admin" : "user",
   }
 }
@@ -130,6 +141,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
   }, [])
 
+  const updateProfile = useCallback(async (input: UpdateProfilePayload) => {
+    const next = toUser(await authApi.updateProfile(input))
+    setUser(next)
+    return next
+  }, [])
+
+  const uploadAvatar = useCallback(async (file: File) => {
+    const next = toUser(await authApi.uploadAvatar(file))
+    setUser(next)
+    return next
+  }, [])
+
+  const deleteAvatar = useCallback(async () => {
+    const next = toUser(await authApi.deleteAvatar())
+    setUser(next)
+    return next
+  }, [])
+
+  const changePassword = useCallback(async (input: ChangePasswordPayload) => {
+    await authApi.changePassword(input)
+    setUser(null)
+    setStatus("idle")
+    setError(null)
+  }, [])
+
   const clearError = useCallback(() => {
     setStatus((prev) => (prev === "error" ? "idle" : prev))
     setError(null)
@@ -144,9 +180,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      updateProfile,
+      uploadAvatar,
+      deleteAvatar,
+      changePassword,
       clearError,
     }),
-    [user, status, error, isInitializing, login, register, logout, clearError]
+    [
+      user,
+      status,
+      error,
+      isInitializing,
+      login,
+      register,
+      logout,
+      updateProfile,
+      uploadAvatar,
+      deleteAvatar,
+      changePassword,
+      clearError,
+    ]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

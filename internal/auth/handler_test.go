@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -70,6 +72,29 @@ func (f *fakeUsers) UpdatePassword(_ context.Context, id int64, hash string, mus
 	return nil
 }
 
+func (f *fakeUsers) UpdateProfile(_ context.Context, id int64, displayName string) error {
+	u, ok := f.byID[id]
+	if !ok {
+		return user.ErrNotFound
+	}
+	u.DisplayName = displayName
+	return nil
+}
+
+func (f *fakeUsers) UpdateAvatarPath(_ context.Context, id int64, avatarPath *string) error {
+	u, ok := f.byID[id]
+	if !ok {
+		return user.ErrNotFound
+	}
+	if avatarPath == nil {
+		u.AvatarPath = nil
+		return nil
+	}
+	path := *avatarPath
+	u.AvatarPath = &path
+	return nil
+}
+
 func (f *fakeUsers) EmailExists(_ context.Context, email string) (bool, error) {
 	_, ok := f.byEmail[strings.ToLower(email)]
 	return ok, nil
@@ -121,6 +146,44 @@ func (f *fakeRefresh) RevokeAllForUser(_ context.Context, userID int64) error {
 	return nil
 }
 
+type fakeBlob struct {
+	data    map[string][]byte
+	deleted []string
+}
+
+func newFakeBlob() *fakeBlob {
+	return &fakeBlob{data: map[string][]byte{}}
+}
+
+func (f *fakeBlob) Put(_ context.Context, bucket, userKey, fileKey string, data []byte) (string, error) {
+	path := bucket + "/" + userKey + "/" + fileKey
+	f.data[path] = append([]byte(nil), data...)
+	return path, nil
+}
+
+func (f *fakeBlob) Get(_ context.Context, relPath string, w io.Writer) error {
+	data, ok := f.data[relPath]
+	if !ok {
+		return user.ErrNotFound
+	}
+	_, err := w.Write(data)
+	return err
+}
+
+func (f *fakeBlob) Delete(_ context.Context, relPath string) error {
+	f.deleted = append(f.deleted, relPath)
+	delete(f.data, relPath)
+	return nil
+}
+
+func (f *fakeBlob) Stat(_ context.Context, relPath string) (int64, error) {
+	data, ok := f.data[relPath]
+	if !ok {
+		return 0, user.ErrNotFound
+	}
+	return int64(len(data)), nil
+}
+
 // ---- test scaffolding ---------------------------------------------------
 
 type testRig struct {
@@ -129,6 +192,7 @@ type testRig struct {
 	handler *auth.Handler
 	users   *fakeUsers
 	refresh *fakeRefresh
+	blob    *fakeBlob
 	policy  *fakeRegistrationPolicy
 	secret  string
 }
@@ -144,12 +208,13 @@ func newRig(t *testing.T) *testRig {
 	gin.SetMode(gin.TestMode)
 	users := newFakeUsers()
 	refresh := newFakeRefresh()
+	blobStore := newFakeBlob()
 	secret := "test-secret-of-thirty-two-chars!"
 	policy := &fakeRegistrationPolicy{enabled: true}
 
 	// We need to expose newServiceImpl; provide via test helper in package.
 	svc := auth.NewServiceForTest(users, refresh, secret, time.Now)
-	h := auth.NewHandler(svc, policy)
+	h := auth.NewHandler(svc, policy).WithBlobStore(blobStore)
 
 	engine := gin.New()
 	engine.Use(httpx.Recovery())
@@ -163,11 +228,15 @@ func newRig(t *testing.T) *testRig {
 	secured := v1.Group("")
 	secured.Use(auth.RequireAuth(secret, users))
 	secured.GET("/auth/me", h.MeEndpoint)
+	secured.PATCH("/auth/profile", h.UpdateProfileEndpoint)
+	secured.POST("/auth/avatar", h.UploadAvatarEndpoint)
+	secured.DELETE("/auth/avatar", h.DeleteAvatarEndpoint)
 	secured.POST("/auth/password", h.ChangePasswordEndpoint)
+	v1.GET("/auth/avatar/:id", h.StreamAvatarEndpoint)
 
 	return &testRig{
 		engine: engine, svc: svc, handler: h,
-		users: users, refresh: refresh, policy: policy, secret: secret,
+		users: users, refresh: refresh, blob: blobStore, policy: policy, secret: secret,
 	}
 }
 
@@ -271,6 +340,35 @@ func (r *testRig) doWithCookies(t *testing.T, method, path string, body any, bea
 	w := httptest.NewRecorder()
 	r.engine.ServeHTTP(w, req)
 	return w
+}
+
+func (r *testRig) uploadAvatar(t *testing.T, bearer string, filename string, data []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	var body bytes.Buffer
+	mw := multipartWriter(&body, "avatar", filename, data)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/avatar", &body)
+	req.Header.Set("Content-Type", mw)
+	if bearer != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	w := httptest.NewRecorder()
+	r.engine.ServeHTTP(w, req)
+	return w
+}
+
+func multipartWriter(body *bytes.Buffer, field, filename string, data []byte) string {
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(field, filename)
+	if err != nil {
+		panic(err)
+	}
+	if _, err := part.Write(data); err != nil {
+		panic(err)
+	}
+	if err := writer.Close(); err != nil {
+		panic(err)
+	}
+	return writer.FormDataContentType()
 }
 
 // ---- tests ---------------------------------------------------------------
@@ -436,6 +534,112 @@ func TestHandler_Me_401_NoBearer(t *testing.T) {
 	w := r.do(t, http.MethodGet, "/api/v1/auth/me", nil, "")
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestHandler_UpdateProfile_200(t *testing.T) {
+	r := newRig(t)
+	resp := registerOK(t, r, "profile@x.com", "12345678")
+
+	w := r.do(t, http.MethodPatch, "/api/v1/auth/profile", auth.UpdateProfileReq{
+		DisplayName: "  Alice  ",
+	}, resp.Tokens.AccessToken)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data struct {
+			User auth.UserDTO `json:"user"`
+		} `json:"data"`
+		Error any `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode profile: %v", err)
+	}
+	if env.Data.User.DisplayName != "Alice" {
+		t.Fatalf("displayName = %q", env.Data.User.DisplayName)
+	}
+}
+
+func TestHandler_UpdateProfile_422_BlankName(t *testing.T) {
+	r := newRig(t)
+	resp := registerOK(t, r, "profile@x.com", "12345678")
+
+	w := r.do(t, http.MethodPatch, "/api/v1/auth/profile", auth.UpdateProfileReq{
+		DisplayName: "   ",
+	}, resp.Tokens.AccessToken)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422, body=%s", w.Code, w.Body.String())
+	}
+	env := decode(t, w.Body.Bytes())
+	if env.Error == nil || env.Error.Code != httpx.CodeValidationFailed {
+		t.Fatalf("err = %+v", env.Error)
+	}
+}
+
+func TestHandler_Avatar_UploadStreamDelete(t *testing.T) {
+	r := newRig(t)
+	resp := registerOK(t, r, "avatar@x.com", "12345678")
+	png := []byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+	}
+
+	w := r.uploadAvatar(t, resp.Tokens.AccessToken, "avatar.png", png)
+	if w.Code != http.StatusOK {
+		t.Fatalf("upload: status=%d body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data struct {
+			User auth.UserDTO `json:"user"`
+		} `json:"data"`
+		Error any `json:"error"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatalf("decode avatar: %v", err)
+	}
+	if env.Data.User.AvatarURL != "/api/v1/auth/avatar/1" {
+		t.Fatalf("avatarUrl = %q", env.Data.User.AvatarURL)
+	}
+
+	w2 := r.do(t, http.MethodGet, env.Data.User.AvatarURL, nil, "")
+	if w2.Code != http.StatusOK {
+		t.Fatalf("stream: status=%d body=%s", w2.Code, w2.Body.String())
+	}
+	if ct := w2.Header().Get("Content-Type"); ct != "image/png" {
+		t.Fatalf("content-type = %q", ct)
+	}
+
+	oldPath := ""
+	if r.users.byID[1].AvatarPath != nil {
+		oldPath = *r.users.byID[1].AvatarPath
+	}
+	w3 := r.do(t, http.MethodDelete, "/api/v1/auth/avatar", nil, resp.Tokens.AccessToken)
+	if w3.Code != http.StatusOK {
+		t.Fatalf("delete: status=%d body=%s", w3.Code, w3.Body.String())
+	}
+	if r.users.byID[1].AvatarPath != nil {
+		t.Fatalf("avatar path should be cleared")
+	}
+	if oldPath == "" || len(r.blob.deleted) != 1 || r.blob.deleted[0] != oldPath {
+		t.Fatalf("old avatar not deleted; old=%q deleted=%v", oldPath, r.blob.deleted)
+	}
+}
+
+func TestHandler_Avatar_422_UnsupportedType(t *testing.T) {
+	r := newRig(t)
+	resp := registerOK(t, r, "avatar@x.com", "12345678")
+
+	w := r.uploadAvatar(t, resp.Tokens.AccessToken, "avatar.gif", []byte("GIF89a"))
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422, body=%s", w.Code, w.Body.String())
+	}
+	env := decode(t, w.Body.Bytes())
+	if env.Error == nil || env.Error.Code != httpx.CodeValidationFailed {
+		t.Fatalf("err = %+v", env.Error)
 	}
 }
 

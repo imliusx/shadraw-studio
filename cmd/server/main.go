@@ -85,7 +85,7 @@ func run() error {
 	if err := adminStore.Load(rootCtx); err != nil {
 		return fmt.Errorf("load upstream config: %w", err)
 	}
-	authHandler := auth.NewHandler(authSvc, adminStore)
+	authHandler := auth.NewHandler(authSvc, adminStore).WithBlobStore(blobStore)
 
 	recordHandler := record.NewHandler(recordRepo, projectRepo, blobStore, adminStore)
 
@@ -130,11 +130,15 @@ func run() error {
 		v1.GET("/config", func(c *gin.Context) {
 			httpx.OK(c, adminStore.AppConfig())
 		})
+		v1.GET("/auth/avatar/:id", authHandler.StreamAvatarEndpoint)
 
 		// authenticated user-scope endpoints
 		secured := v1.Group("")
 		secured.Use(auth.RequireAuth(cfg.JWTSecret, userRepo))
 		secured.GET("/auth/me", authHandler.MeEndpoint)
+		secured.PATCH("/auth/profile", authHandler.UpdateProfileEndpoint)
+		secured.POST("/auth/avatar", authHandler.UploadAvatarEndpoint)
+		secured.DELETE("/auth/avatar", authHandler.DeleteAvatarEndpoint)
 		secured.POST("/auth/password", httpx.RateLimit(10, time.Minute, httpx.KeyByUser), authHandler.ChangePasswordEndpoint)
 
 		secured.POST("/records", httpx.RateLimit(30, time.Minute, httpx.KeyByUser), func(c *gin.Context) {

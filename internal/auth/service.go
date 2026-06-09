@@ -28,6 +28,8 @@ type userStore interface {
 	FindByID(ctx context.Context, id int64) (*user.User, error)
 	Create(ctx context.Context, u *user.User) error
 	UpdatePassword(ctx context.Context, id int64, hash string, mustChange bool) error
+	UpdateProfile(ctx context.Context, id int64, displayName string) error
+	UpdateAvatarPath(ctx context.Context, id int64, avatarPath *string) error
 	EmailExists(ctx context.Context, email string) (bool, error)
 }
 
@@ -159,6 +161,29 @@ func (s *Service) Me(ctx context.Context, userID int64) (*user.User, error) {
 	return s.users.FindByID(ctx, userID)
 }
 
+// UpdateProfile updates editable account fields and returns the fresh user.
+func (s *Service) UpdateProfile(ctx context.Context, userID int64, req UpdateProfileReq) (*user.User, error) {
+	if err := s.users.UpdateProfile(ctx, userID, req.DisplayName); err != nil {
+		return nil, err
+	}
+	return s.users.FindByID(ctx, userID)
+}
+
+// UpdateAvatarPath writes the avatar path and returns the previous path so the
+// caller can clean the old blob after the DB update succeeds.
+func (s *Service) UpdateAvatarPath(ctx context.Context, userID int64, avatarPath *string) (oldPath *string, fresh *user.User, err error) {
+	u, err := s.users.FindByID(ctx, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	oldPath = u.AvatarPath
+	if err := s.users.UpdateAvatarPath(ctx, userID, avatarPath); err != nil {
+		return nil, nil, err
+	}
+	fresh, err = s.users.FindByID(ctx, userID)
+	return oldPath, fresh, err
+}
+
 // ChangePassword verifies the old password and sets a new one. All refresh
 // tokens for the user are revoked.
 func (s *Service) ChangePassword(ctx context.Context, userID int64, oldPw, newPw string) error {
@@ -253,8 +278,16 @@ func ToUserDTO(u *user.User) UserDTO {
 		ID:                 strconv.FormatInt(u.ID, 10),
 		Email:              u.Email,
 		DisplayName:        u.DisplayName,
+		AvatarURL:          avatarURL(u),
 		Role:               string(u.Role),
 		MustChangePassword: u.MustChangePassword,
 		CreatedAt:          u.CreatedAt.UTC().Format(time.RFC3339),
 	}
+}
+
+func avatarURL(u *user.User) string {
+	if u.AvatarPath == nil || *u.AvatarPath == "" {
+		return ""
+	}
+	return "/api/v1/auth/avatar/" + strconv.FormatInt(u.ID, 10)
 }

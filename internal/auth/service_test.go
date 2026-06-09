@@ -59,6 +59,29 @@ func (f *fakeUsers) UpdatePassword(_ context.Context, id int64, hash string, mus
 	return nil
 }
 
+func (f *fakeUsers) UpdateProfile(_ context.Context, id int64, displayName string) error {
+	u, ok := f.byID[id]
+	if !ok {
+		return user.ErrNotFound
+	}
+	u.DisplayName = displayName
+	return nil
+}
+
+func (f *fakeUsers) UpdateAvatarPath(_ context.Context, id int64, avatarPath *string) error {
+	u, ok := f.byID[id]
+	if !ok {
+		return user.ErrNotFound
+	}
+	if avatarPath == nil {
+		u.AvatarPath = nil
+		return nil
+	}
+	path := *avatarPath
+	u.AvatarPath = &path
+	return nil
+}
+
 func (f *fakeUsers) EmailExists(_ context.Context, email string) (bool, error) {
 	_, ok := f.byEmail[strings.ToLower(email)]
 	return ok, nil

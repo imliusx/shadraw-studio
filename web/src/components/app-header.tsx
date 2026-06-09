@@ -13,7 +13,7 @@ import { motion } from "motion/react"
 import { useConfig, useSettingsDialog } from "@/providers/app-state-provider"
 import { useAuth, type AuthUser } from "@/providers/auth-provider"
 import { ApiStatusIndicator } from "@/components/api-status-indicator"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BrandLockup } from "@/components/brand-lockup"
 import { Button } from "@/components/ui/button"
 import { ColorThemePicker } from "@/components/color-theme-picker"
@@ -154,6 +154,9 @@ export function AppHeader() {
                 aria-label="打开个人中心"
               >
                 <Avatar>
+                  {user.avatarUrl ? (
+                    <AvatarImage src={user.avatarUrl} alt="" />
+                  ) : null}
                   <AvatarFallback>{avatarLetter(user)}</AvatarFallback>
                 </Avatar>
               </Button>
@@ -165,6 +168,9 @@ export function AppHeader() {
               <DropdownMenuLabel className="px-2 py-1.5">
                 <div className="flex items-center gap-3">
                   <Avatar size="lg">
+                    {user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt="" />
+                    ) : null}
                     <AvatarFallback>{avatarLetter(user)}</AvatarFallback>
                   </Avatar>
                   <div className="flex min-w-0 flex-col gap-0.5">

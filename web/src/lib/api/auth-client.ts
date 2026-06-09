@@ -8,6 +8,7 @@ export type AuthUser = {
   id: string
   email: string
   displayName: string
+  avatarUrl?: string
   role: "admin" | "user"
   mustChangePassword: boolean
   createdAt: string
@@ -32,6 +33,10 @@ export type LoginPayload = {
 export type ChangePasswordPayload = {
   oldPassword: string
   newPassword: string
+}
+
+export type UpdateProfilePayload = {
+  displayName: string
 }
 
 // 后端错误码白名单(与 design.md §10.6 对齐)
@@ -82,7 +87,9 @@ async function request<T>(
 ): Promise<T> {
   const { auth = false, retry401 = true } = options
   const headers = new Headers(init.headers ?? {})
-  headers.set("Content-Type", "application/json")
+  if (init.body !== undefined && !(init.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json")
+  }
   if (auth) {
     const tokens = tokenStorage.read()
     if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`)
@@ -187,5 +194,34 @@ export const authApi = {
     )
     // 后端会撤销所有 refresh token; 本地需要清,让用户重新登录
     tokenStorage.clear()
+  },
+
+  async updateProfile(payload: UpdateProfilePayload): Promise<AuthUser> {
+    const data = await request<{ user: AuthUser }>(
+      "/api/v1/auth/profile",
+      { method: "PATCH", body: JSON.stringify(payload) },
+      { auth: true }
+    )
+    return data.user
+  },
+
+  async uploadAvatar(file: File): Promise<AuthUser> {
+    const form = new FormData()
+    form.set("avatar", file)
+    const data = await request<{ user: AuthUser }>(
+      "/api/v1/auth/avatar",
+      { method: "POST", body: form },
+      { auth: true }
+    )
+    return data.user
+  },
+
+  async deleteAvatar(): Promise<AuthUser> {
+    const data = await request<{ user: AuthUser }>(
+      "/api/v1/auth/avatar",
+      { method: "DELETE" },
+      { auth: true }
+    )
+    return data.user
   },
 }

@@ -152,6 +152,17 @@ ALTER TABLE upstream_configs
 |---|---|
 | `registration_enabled` | 管理员配置的公开注册开关；默认 true 以保持既有自助注册行为 |
 
+## 018_user_avatar
+
+```sql
+ALTER TABLE users
+    ADD COLUMN avatar_path TEXT;
+```
+
+| 列 | 说明 |
+|---|---|
+| `avatar_path` | 用户头像 blob 相对路径；头像文件走现有 local / S3 blob store，数据库只存路径 |
+
 ## 迁移规则
 
 - 工具：`golang-migrate/migrate v4`，文件名 `NNN_short_name.up.sql` / `.down.sql`。
