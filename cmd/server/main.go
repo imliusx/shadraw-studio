@@ -38,6 +38,10 @@ func main() {
 }
 
 func run() error {
+	if err := config.LoadDotenvIfNotProduction(".env"); err != nil {
+		return fmt.Errorf("load dotenv: %w", err)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)

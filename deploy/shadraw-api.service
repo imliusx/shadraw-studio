@@ -9,6 +9,7 @@ Requires=docker.service
 Type=simple
 WorkingDirectory=/opt/shadraw-studio
 EnvironmentFile=/opt/shadraw-studio/.env
+Environment=APP_ENV=production
 
 ExecStart=/opt/shadraw-studio/server-linux-amd64
 

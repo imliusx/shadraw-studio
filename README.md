@@ -38,6 +38,8 @@ cp .env.example .env        # 按需修改 DB / MinIO / JWT 配置
 go run ./cmd/server
 ```
 
+本地开发默认会自动加载仓库根目录 `.env`；生产环境请设置 `APP_ENV=production`，由 systemd / Docker 显式注入环境变量。
+
 ### 3. 启动前端 dev server (端口 3001)
 
 ```bash

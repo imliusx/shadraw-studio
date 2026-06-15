@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"github.com/liusx/shadraw/internal/blob"
+	"github.com/liusx/shadraw/internal/config"
 )
 
 type options struct {
@@ -63,7 +63,7 @@ func run() error {
 	flag.Parse()
 
 	if *envFile != "" {
-		if err := loadDotenv(*envFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		if err := config.LoadDotenv(*envFile); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
@@ -258,44 +258,6 @@ func splitObjectKey(key string) (string, string, string, error) {
 
 func isHidden(name string) bool {
 	return strings.HasPrefix(name, ".")
-}
-
-func loadDotenv(filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	lineNo := 0
-	for scanner.Scan() {
-		lineNo++
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, ok := strings.Cut(line, "=")
-		if !ok {
-			return fmt.Errorf("%s:%d: expected KEY=value", filePath, lineNo)
-		}
-		key = strings.TrimSpace(key)
-		if key == "" {
-			return fmt.Errorf("%s:%d: empty key", filePath, lineNo)
-		}
-		if _, exists := os.LookupEnv(key); exists {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-		if err := os.Setenv(key, value); err != nil {
-			return fmt.Errorf("set %s: %w", key, err)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("read %s: %w", filePath, err)
-	}
-	return nil
 }
 
 func getenv(key, fallback string) string {
