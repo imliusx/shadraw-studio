@@ -16,7 +16,7 @@
 ARG RUNTIME_IMAGE=m.daocloud.io/gcr.io/distroless/static:nonroot
 
 # --- Stage 1: frontend builder -------------------------------------------------
-FROM node:20-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /src/web
 
 # Install deps with a clean, lockfile-pinned install for reproducible builds.
