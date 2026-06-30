@@ -12,12 +12,24 @@
 
 ## 界面截图
 
-|  |  |
-| --- | --- |
-| <strong>登录</strong><br><img src="docs/screenshots/sign-in.png" alt="登录页面" width="420"> | <strong>设置</strong><br><img src="docs/screenshots/light-setting.png" alt="浅色设置页面" width="420"> |
-| <strong>控制台 - 浅色</strong><br><img src="docs/screenshots/light-console.png" alt="浅色控制台" width="420"> | <strong>控制台 - 深色</strong><br><img src="docs/screenshots/dark-console.png" alt="深色控制台" width="420"> |
-| <strong>社区 - 浅色</strong><br><img src="docs/screenshots/light-community.png" alt="浅色社区页面" width="420"> | <strong>社区 - 深色</strong><br><img src="docs/screenshots/dark-community.png" alt="深色社区页面" width="420"> |
-| <strong>管理后台 - 浅色</strong><br><img src="docs/screenshots/light-admin.png" alt="浅色管理后台" width="420"> | <strong>管理后台 - 深色</strong><br><img src="docs/screenshots/dark-admin.png" alt="深色管理后台" width="420"> |
+<table>
+  <tr>
+    <td><strong>登录</strong><br><img src="docs/screenshots/sign-in.png" alt="登录页面" width="420"></td>
+    <td><strong>设置</strong><br><img src="docs/screenshots/light-setting.png" alt="浅色设置页面" width="420"></td>
+  </tr>
+  <tr>
+    <td><strong>控制台 - 浅色</strong><br><img src="docs/screenshots/light-console.png" alt="浅色控制台" width="420"></td>
+    <td><strong>控制台 - 深色</strong><br><img src="docs/screenshots/dark-console.png" alt="深色控制台" width="420"></td>
+  </tr>
+  <tr>
+    <td><strong>社区 - 浅色</strong><br><img src="docs/screenshots/light-community.png" alt="浅色社区页面" width="420"></td>
+    <td><strong>社区 - 深色</strong><br><img src="docs/screenshots/dark-community.png" alt="深色社区页面" width="420"></td>
+  </tr>
+  <tr>
+    <td><strong>管理后台 - 浅色</strong><br><img src="docs/screenshots/light-admin.png" alt="浅色管理后台" width="420"></td>
+    <td><strong>管理后台 - 深色</strong><br><img src="docs/screenshots/dark-admin.png" alt="深色管理后台" width="420"></td>
+  </tr>
+</table>
 
 ## 技术栈
 
