@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Globe2, UserPlus } from "lucide-react"
+import { Globe2, KeyRound, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { useConfig } from "@/providers/app-state-provider"
@@ -38,12 +38,16 @@ export function SiteSettingsCard() {
   const [registrationEnabled, setRegistrationEnabled] = React.useState(true)
   const [savedRegistrationEnabled, setSavedRegistrationEnabled] =
     React.useState(true)
+  const [demoLoginEnabled, setDemoLoginEnabled] = React.useState(false)
+  const [savedDemoLoginEnabled, setSavedDemoLoginEnabled] =
+    React.useState(false)
 
   const trimmedTitle = siteTitle.trim()
   const titleError = titleValidationError(siteTitle)
   const dirty =
     trimmedTitle !== savedTitle ||
-    registrationEnabled !== savedRegistrationEnabled
+    registrationEnabled !== savedRegistrationEnabled ||
+    demoLoginEnabled !== savedDemoLoginEnabled
 
   const reload = React.useCallback(async () => {
     setLoading(true)
@@ -53,6 +57,8 @@ export function SiteSettingsCard() {
       setSavedTitle(cfg.siteTitle)
       setRegistrationEnabled(cfg.registrationEnabled)
       setSavedRegistrationEnabled(cfg.registrationEnabled)
+      setDemoLoginEnabled(cfg.demoLoginEnabled)
+      setSavedDemoLoginEnabled(cfg.demoLoginEnabled)
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "加载失败")
     } finally {
@@ -72,11 +78,14 @@ export function SiteSettingsCard() {
       const cfg = await adminApi.updateSiteSettings({
         siteTitle: trimmedTitle,
         registrationEnabled,
+        demoLoginEnabled,
       })
       setSiteTitle(cfg.siteTitle)
       setSavedTitle(cfg.siteTitle)
       setRegistrationEnabled(cfg.registrationEnabled)
       setSavedRegistrationEnabled(cfg.registrationEnabled)
+      setDemoLoginEnabled(cfg.demoLoginEnabled)
+      setSavedDemoLoginEnabled(cfg.demoLoginEnabled)
       await refreshAppConfig()
       toast.success("已保存站点设置")
     } catch (err) {
@@ -84,7 +93,13 @@ export function SiteSettingsCard() {
     } finally {
       setSaving(false)
     }
-  }, [refreshAppConfig, titleError, trimmedTitle, registrationEnabled])
+  }, [
+    demoLoginEnabled,
+    refreshAppConfig,
+    titleError,
+    trimmedTitle,
+    registrationEnabled,
+  ])
 
   if (loading) {
     return (
@@ -151,6 +166,26 @@ export function SiteSettingsCard() {
               aria-label="开放注册"
             />
           </Field>
+          <Field
+            orientation="horizontal"
+            className="items-start justify-between rounded-lg border p-3"
+          >
+            <FieldContent>
+              <FieldTitle className="flex items-center gap-2">
+                <KeyRound />
+                演示登录预填
+              </FieldTitle>
+              <FieldDescription>
+                打开后，登录页会默认填入演示账号和密码。
+              </FieldDescription>
+            </FieldContent>
+            <Switch
+              checked={demoLoginEnabled}
+              onCheckedChange={setDemoLoginEnabled}
+              disabled={saving}
+              aria-label="演示登录预填"
+            />
+          </Field>
           <Field orientation="horizontal" className="justify-start">
             <Button
               onClick={handleSave}
@@ -164,6 +199,7 @@ export function SiteSettingsCard() {
               onClick={() => {
                 setSiteTitle(savedTitle)
                 setRegistrationEnabled(savedRegistrationEnabled)
+                setDemoLoginEnabled(savedDemoLoginEnabled)
               }}
               disabled={saving || !dirty}
             >

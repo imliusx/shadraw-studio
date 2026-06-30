@@ -10,6 +10,7 @@ export const DEFAULT_CONFIG: Config = {
   model: RESPONSE_IMAGE_MODEL,
   siteTitle: "shadraw",
   registrationEnabled: true,
+  demoLoginEnabled: false,
 }
 
 export function loadConfig(): Config {
@@ -41,6 +42,10 @@ export function loadConfig(): Config {
         typeof parsed.registrationEnabled === "boolean"
           ? parsed.registrationEnabled
           : DEFAULT_CONFIG.registrationEnabled,
+      demoLoginEnabled:
+        typeof parsed.demoLoginEnabled === "boolean"
+          ? parsed.demoLoginEnabled
+          : DEFAULT_CONFIG.demoLoginEnabled,
     }
   } catch {
     return DEFAULT_CONFIG

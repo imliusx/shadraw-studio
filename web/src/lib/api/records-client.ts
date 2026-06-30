@@ -153,6 +153,7 @@ export type AppConfig = {
   enabledModels: string[]
   siteTitle: string
   registrationEnabled: boolean
+  demoLoginEnabled: boolean
 }
 
 export const appConfigApi = {
@@ -165,6 +166,7 @@ export const appConfigApi = {
       enabledModels: data.enabledModels ?? [],
       siteTitle: data.siteTitle?.trim() || "shadraw",
       registrationEnabled: data.registrationEnabled ?? true,
+      demoLoginEnabled: data.demoLoginEnabled ?? false,
     }
   },
 }

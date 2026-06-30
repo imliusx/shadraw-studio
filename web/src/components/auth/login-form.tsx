@@ -28,6 +28,8 @@ import { Spinner } from "@/components/ui/spinner"
 import { useMotionVariants } from "@/lib/motion"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const DEMO_LOGIN_EMAIL = "liusx1024@gmail.com"
+const DEMO_LOGIN_PASSWORD = "1941408329"
 
 type FieldKey = "email" | "password"
 type FieldErrors = Partial<Record<FieldKey, string>>
@@ -67,6 +69,16 @@ export function LoginForm() {
   useEffect(() => {
     clearError()
   }, [clearError])
+
+  useEffect(() => {
+    if (config.demoLoginEnabled) {
+      setEmail((value) => value || DEMO_LOGIN_EMAIL)
+      setPassword((value) => value || DEMO_LOGIN_PASSWORD)
+      return
+    }
+    setEmail((value) => (value === DEMO_LOGIN_EMAIL ? "" : value))
+    setPassword((value) => (value === DEMO_LOGIN_PASSWORD ? "" : value))
+  }, [config.demoLoginEnabled])
 
   const isSubmitting = status === "submitting"
 

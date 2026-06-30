@@ -24,8 +24,7 @@ type runtimeStore interface {
 
 type siteStore interface {
 	SiteConfig() SiteConfigDTO
-	RegistrationEnabled() bool
-	UpdateSiteConfig(ctx context.Context, title string, registrationEnabled bool, actorID int64) error
+	UpdateSiteConfig(ctx context.Context, title string, registrationEnabled bool, demoLoginEnabled bool, actorID int64) error
 }
 
 // Handler bundles admin endpoints.
@@ -191,11 +190,16 @@ func (h *Handler) UpdateSite(c *gin.Context) {
 		return
 	}
 	actorID, _ := strconv.ParseInt(httpx.UserIDFrom(c), 10, 64)
-	registrationEnabled := h.siteStore.RegistrationEnabled()
+	current := h.siteStore.SiteConfig()
+	registrationEnabled := current.RegistrationEnabled
 	if req.RegistrationEnabled != nil {
 		registrationEnabled = *req.RegistrationEnabled
 	}
-	if err := h.siteStore.UpdateSiteConfig(c.Request.Context(), req.SiteTitle, registrationEnabled, actorID); err != nil {
+	demoLoginEnabled := current.DemoLoginEnabled
+	if req.DemoLoginEnabled != nil {
+		demoLoginEnabled = *req.DemoLoginEnabled
+	}
+	if err := h.siteStore.UpdateSiteConfig(c.Request.Context(), req.SiteTitle, registrationEnabled, demoLoginEnabled, actorID); err != nil {
 		httpx.Fail(c, http.StatusInternalServerError, httpx.CodeInternalError, "internal error")
 		return
 	}

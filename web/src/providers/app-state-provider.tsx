@@ -66,6 +66,7 @@ const DEFAULT_CONFIG: Config = {
   model: "",
   siteTitle: "shadraw",
   registrationEnabled: true,
+  demoLoginEnabled: false,
 }
 
 type AppState = {
@@ -340,6 +341,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     enabledModels: string[]
     siteTitle: string
     registrationEnabled: boolean
+    demoLoginEnabled: boolean
   }) => {
     const pickModel = (models: string[], currentModel: string): string => {
       if (models.length === 0) return ""
@@ -356,6 +358,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           model: pickModel(cfg.enabledModels, currentConfig.model),
           siteTitle: cfg.siteTitle,
           registrationEnabled: cfg.registrationEnabled,
+          demoLoginEnabled: cfg.demoLoginEnabled,
         },
         enabledModels: cfg.enabledModels,
       },
@@ -406,6 +409,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
           ...DEFAULT_CONFIG,
           siteTitle: stateRef.current.config.siteTitle,
           registrationEnabled: stateRef.current.config.registrationEnabled,
+          demoLoginEnabled: stateRef.current.config.demoLoginEnabled,
         },
         enabledModels: [],
       },

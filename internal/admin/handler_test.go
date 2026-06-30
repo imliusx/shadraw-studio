@@ -39,12 +39,8 @@ type fakeSiteStore struct {
 
 func (f *fakeSiteStore) SiteConfig() SiteConfigDTO { return f.config }
 
-func (f *fakeSiteStore) RegistrationEnabled() bool {
-	return f.config.RegistrationEnabled
-}
-
-func (f *fakeSiteStore) UpdateSiteConfig(_ context.Context, title string, registrationEnabled bool, actorID int64) error {
-	f.config = SiteConfigDTO{SiteTitle: title, RegistrationEnabled: registrationEnabled}
+func (f *fakeSiteStore) UpdateSiteConfig(_ context.Context, title string, registrationEnabled bool, demoLoginEnabled bool, actorID int64) error {
+	f.config = SiteConfigDTO{SiteTitle: title, RegistrationEnabled: registrationEnabled, DemoLoginEnabled: demoLoginEnabled}
 	f.updated = f.config
 	f.actorID = actorID
 	return nil
@@ -206,6 +202,7 @@ func TestHandler_GetSite_ReturnsRegistrationEnabled(t *testing.T) {
 	store := &fakeSiteStore{config: SiteConfigDTO{
 		SiteTitle:           "shadraw",
 		RegistrationEnabled: false,
+		DemoLoginEnabled:    true,
 	}}
 	engine := newSiteHandlerTestRig(store)
 
@@ -215,28 +212,30 @@ func TestHandler_GetSite_ReturnsRegistrationEnabled(t *testing.T) {
 		t.Fatalf("status = %d, want 200, body=%s", w.Code, w.Body.String())
 	}
 	got := decodeSiteConfig(t, w.Body.Bytes())
-	if got.SiteTitle != "shadraw" || got.RegistrationEnabled {
-		t.Fatalf("config = %+v, want registration disabled", got)
+	if got.SiteTitle != "shadraw" || got.RegistrationEnabled || !got.DemoLoginEnabled {
+		t.Fatalf("config = %+v, want registration disabled and demo login enabled", got)
 	}
 }
 
-func TestHandler_UpdateSite_PersistsRegistrationEnabled(t *testing.T) {
+func TestHandler_UpdateSite_PersistsSiteToggles(t *testing.T) {
 	store := &fakeSiteStore{config: SiteConfigDTO{
 		SiteTitle:           "shadraw",
 		RegistrationEnabled: true,
+		DemoLoginEnabled:    false,
 	}}
 	engine := newSiteHandlerTestRig(store)
 
 	w := runtimeReq(t, engine, http.MethodPatch, "/api/v1/admin/site-settings", gin.H{
 		"siteTitle":           "我的生图站",
 		"registrationEnabled": false,
+		"demoLoginEnabled":    true,
 	})
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body=%s", w.Code, w.Body.String())
 	}
-	if store.updated.SiteTitle != "我的生图站" || store.updated.RegistrationEnabled {
-		t.Fatalf("updated = %+v, want title and disabled registration", store.updated)
+	if store.updated.SiteTitle != "我的生图站" || store.updated.RegistrationEnabled || !store.updated.DemoLoginEnabled {
+		t.Fatalf("updated = %+v, want title, disabled registration, enabled demo login", store.updated)
 	}
 	if store.actorID != 12 {
 		t.Fatalf("actorID = %d, want 12", store.actorID)
@@ -251,6 +250,7 @@ func TestHandler_UpdateSite_OmittedRegistrationKeepsExistingValue(t *testing.T) 
 	store := &fakeSiteStore{config: SiteConfigDTO{
 		SiteTitle:           "shadraw",
 		RegistrationEnabled: false,
+		DemoLoginEnabled:    true,
 	}}
 	engine := newSiteHandlerTestRig(store)
 
@@ -261,12 +261,12 @@ func TestHandler_UpdateSite_OmittedRegistrationKeepsExistingValue(t *testing.T) 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body=%s", w.Code, w.Body.String())
 	}
-	if store.updated.SiteTitle != "新标题" || store.updated.RegistrationEnabled {
-		t.Fatalf("updated = %+v, want existing disabled registration preserved", store.updated)
+	if store.updated.SiteTitle != "新标题" || store.updated.RegistrationEnabled || !store.updated.DemoLoginEnabled {
+		t.Fatalf("updated = %+v, want existing disabled registration and enabled demo login preserved", store.updated)
 	}
 }
 
-func TestStore_AppConfig_DefaultsRegistrationEnabledBeforeLoad(t *testing.T) {
+func TestStore_AppConfig_DefaultsSiteTogglesBeforeLoad(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	cfg := store.AppConfig()
@@ -274,21 +274,28 @@ func TestStore_AppConfig_DefaultsRegistrationEnabledBeforeLoad(t *testing.T) {
 	if !cfg.RegistrationEnabled {
 		t.Fatalf("registrationEnabled = false, want true before load")
 	}
+	if cfg.DemoLoginEnabled {
+		t.Fatalf("demoLoginEnabled = true, want false before load")
+	}
 }
 
-func TestStore_AppConfig_ReturnsCachedRegistrationEnabled(t *testing.T) {
+func TestStore_AppConfig_ReturnsCachedSiteToggles(t *testing.T) {
 	store := NewStore(nil, nil)
 	store.loaded = true
 	store.cached = UpstreamConfig{
 		EnabledModels:       JSONArray{"gpt-image-2"},
 		SiteTitle:           "shadraw",
 		RegistrationEnabled: false,
+		DemoLoginEnabled:    true,
 	}
 
 	cfg := store.AppConfig()
 
 	if cfg.RegistrationEnabled {
 		t.Fatalf("registrationEnabled = true, want false from cache")
+	}
+	if !cfg.DemoLoginEnabled {
+		t.Fatalf("demoLoginEnabled = false, want true from cache")
 	}
 	if cfg.SiteTitle != "shadraw" {
 		t.Fatalf("siteTitle = %q", cfg.SiteTitle)

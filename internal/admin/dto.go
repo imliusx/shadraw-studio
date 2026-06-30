@@ -62,12 +62,14 @@ type AppConfigDTO struct {
 	EnabledModels       []string `json:"enabledModels"`
 	SiteTitle           string   `json:"siteTitle"`
 	RegistrationEnabled bool     `json:"registrationEnabled"`
+	DemoLoginEnabled    bool     `json:"demoLoginEnabled"`
 }
 
 // SiteConfigDTO is the admin-editable site settings shape.
 type SiteConfigDTO struct {
 	SiteTitle           string `json:"siteTitle"`
 	RegistrationEnabled bool   `json:"registrationEnabled"`
+	DemoLoginEnabled    bool   `json:"demoLoginEnabled"`
 }
 
 // AdminUserDTO extends the public auth user shape with admin-only fields.
@@ -106,6 +108,7 @@ type UpdateUpstreamReq struct {
 type UpdateSiteReq struct {
 	SiteTitle           string `json:"siteTitle" binding:"required,min=1,max=64"`
 	RegistrationEnabled *bool  `json:"registrationEnabled,omitempty"`
+	DemoLoginEnabled    *bool  `json:"demoLoginEnabled,omitempty"`
 }
 
 // UpdateRuntimeReq is the body of PATCH /api/v1/admin/runtime.

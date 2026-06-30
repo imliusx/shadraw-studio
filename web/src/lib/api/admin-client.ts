@@ -18,6 +18,7 @@ export type UpstreamConfigDTO = RuntimeSettingsDTO & {
 export type SiteConfigDTO = {
   siteTitle: string
   registrationEnabled: boolean
+  demoLoginEnabled: boolean
 }
 
 export type AdminRecordDTO = RecordDTO & {
